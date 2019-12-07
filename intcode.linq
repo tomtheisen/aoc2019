@@ -114,4 +114,8 @@ public class IntCodeCluster {
 	public void Run() {
 		while (Tick()) {}
 	}
+	
+	public IntCodeMachine this[Index index] => Machines[index];
+	
+	public int Count => Machines.Count;
 }

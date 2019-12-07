@@ -3,34 +3,27 @@
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
-List<List<int>> GetPermutations(List<int> arr) {
-	var result = new List<List<int>>();
-	if (arr.Count == 0) result.Add(new List<int>());
-	for (int i = 0; i < arr.Count; i++) {
-		var suffixes = GetPermutations(arr.Take(i).Concat(arr.Skip(i+1)).ToList());
-		result.AddRange(suffixes.Select(perm => perm.Prepend(arr[i]).ToList()));
-	}
-	return result;
-}
-
 int BestOutput(List<int> phases) {
-	var permuations = GetPermutations(phases);
-	var machines = "ABCDE"
-		.Select(c => new IntCodeMachine(GetAocIntegers(), c.ToString()))
-		.ToArray();
+	var permuations = phases.Permutations().ToList();
 
 	int result = int.MinValue;
-	machines[0].UnhandledInput += num => result = Math.Max(result, num);
 
-	for (int i = 0; i < machines.Length; i++)
-		machines[i].Outputting += machines[-~i % machines.Length].TakeInput;
+	// build vm cluster
+	var cluster = new IntCodeCluster(
+		"ABCDE".Select(c => new IntCodeMachine(GetAocIntegers(), "Amp " + c)));
 		
-	var cluster = new IntCodeCluster(machines);
+	// wire the output of each machine to the input of the next
+	for (int i = 0; i < cluster.Count; i++) 
+		cluster[i].Outputting += cluster[-~i % cluster.Count].TakeInput;
+	
+	// input received after termination of the first machine goes to output
+	cluster[0].UnhandledInput += num => result = Math.Max(result, num);
 
-	foreach (var permutation in permuations) {
+	// run the cluster for each configuration of phases
+	foreach (var perm in permuations) {
 		cluster.Reset();
-		for (int i = 0; i < machines.Length; i++) machines[i].TakeInput(permutation[i]);
-		machines[0].TakeInput(0);
+		for (int i = 0; i < cluster.Count; i++) cluster[i].TakeInput(perm[i]);
+		cluster[0].TakeInput(0);
 		cluster.Run();
 	}
 	return result;
