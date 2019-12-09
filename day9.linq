@@ -1,17 +1,15 @@
-<Query Kind="Statements" />
+<Query Kind="Statements">
+  <Namespace>System.Numerics</Namespace>
+</Query>
 
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
 var machine = new IntCodeMachine();
 machine.Outputting += Console.WriteLine;
-
-machine.Reset();
 machine.TakeInput(1);
 machine.Run();
 
-Console.WriteLine();
-
 machine.Reset();
-machine.TakeInput(5);
+machine.TakeInput(2);
 machine.Run();

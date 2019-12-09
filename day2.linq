@@ -3,7 +3,7 @@
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
-var machine = new IntCodeMachine(GetAocIntegers());
+var machine = new IntCodeMachine();
 Console.WriteLine(machine.Run(12, 2)[0]);
 
 for (int noun = 0; noun < 100; noun++) {

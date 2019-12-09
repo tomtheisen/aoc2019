@@ -1,16 +1,18 @@
-<Query Kind="Statements" />
+<Query Kind="Statements">
+  <Namespace>System.Numerics</Namespace>
+</Query>
 
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
-int BestOutput(List<int> phases) {
+long BestOutput(List<int> phases) {
 	var permuations = phases.Permutations().ToList();
 
-	int result = int.MinValue;
+	long result = int.MinValue;
 
 	// build vm cluster
 	var cluster = new IntCodeCluster(
-		"ABCDE".Select(c => new IntCodeMachine(GetAocIntegers(), "Amp " + c)));
+		"ABCDE".Select(c => new IntCodeMachine(GetAocLongs(), "Amp " + c)));
 		
 	// wire the output of each machine to the input of the next
 	for (int i = 0; i < cluster.Count; i++) 
