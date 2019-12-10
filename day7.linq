@@ -5,21 +5,21 @@
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
-long BestOutput(List<int> phases) {
+BigInteger BestOutput(List<int> phases) {
 	var permuations = phases.Permutations().ToList();
 
-	long result = int.MinValue;
+	BigInteger result = int.MinValue;
 
 	// build vm cluster
 	var cluster = new IntCodeCluster(
-		"ABCDE".Select(c => new IntCodeMachine(GetAocLongs(), "Amp " + c)));
+		"ABCDE".Select(c => new IntCodeMachine(GetAocBigIntegers(), "Amp " + c)));
 		
 	// wire the output of each machine to the input of the next
 	for (int i = 0; i < cluster.Count; i++) 
 		cluster[i].Outputting += cluster[-~i % cluster.Count].TakeInput;
 	
 	// input received after termination of the first machine goes to output
-	cluster[0].UnhandledInput += num => result = Math.Max(result, num);
+	cluster[0].UnhandledInput += num => result = BigInteger.Max(result, num);
 
 	// run the cluster for each configuration of phases
 	foreach (var perm in permuations) {

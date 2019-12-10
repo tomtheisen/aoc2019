@@ -33,7 +33,7 @@ public class IntCodeMachine {
 		RelativeBase = IP = 0;
 		Input.Clear();
 		Memory.Clear();
-		for (int i = 0; i < InitialState.Length; i++) Memory[i] = InitialState[i];
+		for (int i = 0; i < InitialState.Length; i++) if (InitialState[i] != 0) Memory[i] = InitialState[i];
 		Terminated = false;
 	}
 
@@ -58,7 +58,7 @@ public class IntCodeMachine {
                 0 => Memory[IP + idx], 
                 1 => IP + idx, 
                 2 => RelativeBase + Memory[IP + idx],
-                _ => throw new Exception($"Opcode modifier for {Memory[IP]} out of range")
+                _ => throw new Exception($"Opcode modifier for {Memory[IP]} out of range"),
             };
             
         BigInteger Read(int idx) => Memory[GetResolvedAddress(idx)];

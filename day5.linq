@@ -4,7 +4,7 @@
 #load ".\intcode.linq"
 
 var machine = new IntCodeMachine();
-machine.Outputting += Console.WriteLine;
+machine.Outputting += n => Console.WriteLine(n);
 
 machine.Reset();
 machine.TakeInput(1);
