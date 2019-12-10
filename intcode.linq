@@ -1,5 +1,6 @@
 <Query Kind="Program">
   <Namespace>System.Numerics</Namespace>
+  <Namespace>System.Diagnostics.CodeAnalysis</Namespace>
 </Query>
 
 #load ".\helpers.linq"
@@ -8,21 +9,21 @@ void Main() {
 }
 
 public class IntCodeMachine {
-	public event Action<long> Outputting;
-	public event Action<long> UnhandledInput;
+	public event Action<BigInteger>? Outputting;
+	public event Action<BigInteger>? UnhandledInput;
 
-	public long[] InitialState { get; }
+	public BigInteger[] InitialState { get; }
 	public bool Terminated { get; private set; } = true;
-	public string Name { get; private set; }
+	public string? Name { get; private set; }
 
-	private Queue<long> Input = new Queue<long>();
-	private Dictionary<long, long> Memory = new Dictionary<long, long>();
-	private long IP;
-	private long RelativeBase;
+	private Queue<BigInteger> Input = new Queue<BigInteger>();
+	private DefaultDictionary<BigInteger, BigInteger> Memory = new DefaultDictionary<BigInteger, BigInteger>(_ => 0);
+	private BigInteger IP;
+	private BigInteger RelativeBase;
 
-	public IntCodeMachine() : this(GetAocLongs()) { }
+	public IntCodeMachine() : this(GetAocBigIntegers()) { }
 
-	public IntCodeMachine(IReadOnlyList<long> initialState, string name = default) {
+	public IntCodeMachine(IReadOnlyList<BigInteger> initialState, string? name = default) {
 		InitialState = initialState.ToArray();
 		Name = name;
 		Reset();
@@ -36,87 +37,76 @@ public class IntCodeMachine {
 		Terminated = false;
 	}
 
-	public void TakeInput(long num) {
-		if (Terminated) this.UnhandledInput?.Invoke(num);
+	public void TakeInput(BigInteger num) {
+		if (Terminated) UnhandledInput?.Invoke(num);
 		else Input.Enqueue(num);
 	}
 
-	public IReadOnlyDictionary<long, long> Run(long? noun = null, long? verb = null) {
+	public IReadOnlyDictionary<BigInteger, BigInteger> Run(BigInteger? noun = null, BigInteger? verb = null) {
 		if (noun.HasValue) Memory[1] = noun.Value;
 		if (verb.HasValue) Memory[2] = verb.Value;
-		while (this.Tick()) { }
-		return this.Memory;
+		while (Tick()) { }
+		return Memory;
 	}
 
 	/// <summary>returns true iff work was done</summary>
 	public bool Tick() {
 		if (Terminated) return false;
 
-		long ReadParameter(int idx) {
-			long op = Memory[IP] / 10;
-			for (long i = 0; i < idx; i++) op /= 10;
-			bool immediate = op % 10 == 1;
-			bool relative = op % 10 == 2;
-
-			var finalAddress = immediate ? IP + idx
-				: (relative ? RelativeBase : 0) + Memory[IP + idx];
-
-			return Memory.TryGetValue(finalAddress, out var result) ? result : 0;
-		}
-		void WriteParamter(int idx, long value) {
-			long op = Memory[IP] / 10;
-			for (long i = 0; i < idx; i++) op /= 10;
-			bool relative = op % 10 == 2;
-			
-			var finalAddress = (relative ? RelativeBase : 0) + Memory[IP + idx];
-			
-			Memory[finalAddress] = value;
-		}
+		BigInteger GetResolvedAddress(int idx) => 
+            (int)(Memory[IP] / BigInteger.Pow(10, idx + 1) % 10) switch { 
+                0 => Memory[IP + idx], 
+                1 => IP + idx, 
+                2 => RelativeBase + Memory[IP + idx],
+                _ => throw new Exception($"Opcode modifier for {Memory[IP]} out of range")
+            };
+            
+        BigInteger Read(int idx) => Memory[GetResolvedAddress(idx)];
+		void Write(int idx, BigInteger value) => Memory[GetResolvedAddress(idx)] = value;
 		
 		switch ((int)(Memory[IP] % 100)) {
 			case 1: // add
-				WriteParamter(3, ReadParameter(1) + ReadParameter(2));
+				Write(3, Read(1) + Read(2));
 				IP += 4;
 				return true;
 			case 2: // mul
-				WriteParamter(3, ReadParameter(1) * ReadParameter(2));
+				Write(3, Read(1) * Read(2));
 				IP += 4;
 				return true;
 			case 3: // in
-				if (Input.Count == 0) return false; // more later
-				WriteParamter(1, Input.Dequeue());
+				if (Input.Count == 0) return false; // work later
+				Write(1, Input.Dequeue());
 				IP += 2;
 				return true;
 			case 4: // out
-				var output = ReadParameter(1);
-				this.Outputting?.Invoke(output);
+				var output = Read(1);
+				Outputting?.Invoke(output);
 				IP += 2;
 				return true;
 			case 5: // bnz
-				if (ReadParameter(1) != 0) IP = ReadParameter(2);
+				if (Read(1) != 0) IP = Read(2);
 				else IP += 3;
 				return true;
 			case 6: // bez
-				if (ReadParameter(1) == 0) IP = ReadParameter(2);
+				if (Read(1) == 0) IP = Read(2);
 				else IP += 3;
 				return true;
 			case 7: // lt
-				WriteParamter(3, ReadParameter(1) < ReadParameter(2) ? 1 : 0);
+				Write(3, Read(1) < Read(2) ? 1 : 0);
 				IP += 4;
 				return true;
 			case 8: // eq
-				WriteParamter(3, ReadParameter(1) == ReadParameter(2) ? 1 : 0);
+				Write(3, Read(1) == Read(2) ? 1 : 0);
 				IP += 4;
 				return true;
 			case 9: // set rel
-				RelativeBase += ReadParameter(1);
+				RelativeBase += Read(1);
 				IP += 2;
 				return true;
 			case 99: // halt
 				Terminated = true;
-				if (this.UnhandledInput == null) Input.Clear();
-				else while (Input.Any())
-						this.UnhandledInput?.Invoke(Input.Dequeue());
+				if (UnhandledInput == null) Input.Clear();
+				else while (Input.Any()) UnhandledInput?.Invoke(Input.Dequeue());
 				return false; // done
 
 			default: throw new ArgumentOutOfRangeException("opcode");
@@ -145,4 +135,49 @@ public class IntCodeCluster {
 	public IntCodeMachine this[Index index] => Machines[index];
 
 	public int Count => Machines.Count;
+}
+
+public class DefaultDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue>
+    where TKey: notnull 
+{
+    private Func<TKey, TValue> DefaultFactory;
+    private IDictionary<TKey, TValue> State = new Dictionary<TKey, TValue>();
+    
+    public DefaultDictionary(Func<TKey, TValue> defaultFactory) => DefaultFactory = defaultFactory;
+    
+    public TValue this[TKey key] { 
+        get => State.TryGetValue(key, out var result) ? result : State[key] = DefaultFactory(key);
+        set => State[key] = value;
+    }
+
+    public ICollection<TKey> Keys => State.Keys;
+    IEnumerable<TKey> IReadOnlyDictionary<TKey, TValue>.Keys => Keys;
+
+    public ICollection<TValue> Values => State.Values;
+    IEnumerable<TValue> IReadOnlyDictionary<TKey, TValue>.Values => Values;
+    public int Count => State.Count;
+    public bool IsReadOnly => false;
+
+    public void Add(TKey key, TValue value) => State.Add(key, value);
+    public void Add(KeyValuePair<TKey, TValue> item) => State.Add(item);
+    public void Clear() => State.Clear();
+
+    public bool Contains(KeyValuePair<TKey, TValue> item) => State.ContainsKey(item.Key)
+        ? object.Equals(State[item.Key], item.Value)
+        : object.Equals(DefaultFactory(item.Key), item.Value);
+
+    public bool ContainsKey(TKey key) => true;
+    public void CopyTo(KeyValuePair<TKey, TValue>[] array, int arrayIndex) => State.CopyTo(array, arrayIndex);
+
+    public bool Remove(TKey key) => State.Remove(key);
+    public bool Remove(KeyValuePair<TKey, TValue> item) => State.Remove(item);
+    
+    public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out TValue value) {
+        value = State.TryGetValue(key, out var result) ? result : State[key] = DefaultFactory(key);
+        return true;
+    }
+
+    public IEnumerator<KeyValuePair<TKey, TValue>> GetEnumerator() => State.GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+    IEnumerator<KeyValuePair<TKey, TValue>> IEnumerable<KeyValuePair<TKey, TValue>>.GetEnumerator() => GetEnumerator();
 }
