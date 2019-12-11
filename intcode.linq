@@ -21,6 +21,9 @@ public class IntCodeMachine {
 	private DefaultDictionary<BigInteger, BigInteger> Memory = new DefaultDictionary<BigInteger, BigInteger>(_ => 0);
 	private BigInteger IP;
 	private BigInteger RelativeBase;
+	private bool GettingOutput = false;
+	private bool SuppressingOutputEvent = false;
+	private BigInteger? Output = default;
 
 	public IntCodeMachine() : this(GetAocBigIntegers()) { }
 
@@ -41,6 +44,15 @@ public class IntCodeMachine {
 	public void TakeInput(BigInteger num) {
 		if (Terminated) UnhandledInput?.Invoke(num);
 		else Input.Enqueue(num);
+	}
+	
+	public BigInteger? GetOutput(bool suppressEvent = true) {
+		GettingOutput = true;
+		SuppressingOutputEvent = suppressEvent;
+		Output = default;
+		do if (!this.Tick()) return null;
+		while (GettingOutput);
+		return Output;
 	}
 
 	public IReadOnlyDictionary<BigInteger, BigInteger> Run(BigInteger? noun = null, BigInteger? verb = null) {
@@ -88,7 +100,9 @@ public class IntCodeMachine {
 				return false; // work later
 			case 4: // out
 				var output = Read(1);
-				Outputting?.Invoke(output);
+				if (!SuppressingOutputEvent) Outputting?.Invoke(output);
+				Output = output;
+				SuppressingOutputEvent = GettingOutput = false;
 				IP += 2;
 				return true;
 			case 5: // bnz
