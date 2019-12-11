@@ -15,6 +15,7 @@ public class IntCodeMachine {
 	public BigInteger[] InitialState { get; }
 	public bool Terminated { get; private set; } = true;
 	public string? Name { get; private set; }
+	public Func<BigInteger>? NextInput { private get; set; } = null;
 
 	private Queue<BigInteger> Input = new Queue<BigInteger>();
 	private DefaultDictionary<BigInteger, BigInteger> Memory = new DefaultDictionary<BigInteger, BigInteger>(_ => 0);
@@ -74,10 +75,17 @@ public class IntCodeMachine {
 				IP += 4;
 				return true;
 			case 3: // in
-				if (Input.Count == 0) return false; // work later
-				Write(1, Input.Dequeue());
-				IP += 2;
-				return true;
+				if (Input.Count > 0) {
+					Write(1, Input.Dequeue());
+					IP += 2;
+					return true;
+				}
+				if (NextInput != null) {
+					Write(1, NextInput());
+					IP += 2;
+					return true;
+				}
+				return false; // work later
 			case 4: // out
 				var output = Read(1);
 				Outputting?.Invoke(output);
