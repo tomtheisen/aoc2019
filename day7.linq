@@ -11,12 +11,16 @@ BigInteger BestOutput(List<int> phases) {
 	BigInteger result = int.MinValue;
 
 	// build vm cluster
-	var cluster = new IntCodeCluster(
-		"ABCDE".Select(c => new IntCodeMachine(GetAocBigIntegers(), "Amp " + c)));
-		
+    var program = GetAocBigIntegers();
+    var machines = "ABCDE".Select(c => new IntCodeMachine(program, "Amp " + c));
+	var cluster = new IntCodeCluster(machines);
+    
 	// wire the output of each machine to the input of the next
-	for (int i = 0; i < cluster.Count; i++) 
+	for (int i = 0; i < cluster.Count; i++) {
+        var container = new DumpContainer().Dump(cluster[i].Name + " Last Output");
+        cluster[i].Outputting += num => container.Content = num;
 		cluster[i].Outputting += cluster[-~i % cluster.Count].TakeInput;
+    }
 	
 	// input received after termination of the first machine goes to output
 	cluster[0].UnhandledInput += num => result = BigInteger.Max(result, num);
@@ -26,7 +30,7 @@ BigInteger BestOutput(List<int> phases) {
 		cluster.Reset();
 		for (int i = 0; i < cluster.Count; i++) cluster[i].TakeInput(perm[i]);
 		cluster[0].TakeInput(0);
-		cluster.Run();
+        cluster.RunConcurrently();
 	}
 	return result;
 }

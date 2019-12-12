@@ -1,6 +1,8 @@
 <Query Kind="Program">
   <Namespace>System.Numerics</Namespace>
   <Namespace>System.Diagnostics.CodeAnalysis</Namespace>
+  <Namespace>System.Collections.Concurrent</Namespace>
+  <Namespace>System.Threading.Tasks</Namespace>
 </Query>
 
 #load ".\helpers.linq"
@@ -16,8 +18,9 @@ public class IntCodeMachine {
 	public bool Terminated { get; private set; } = true;
 	public string? Name { get; private set; }
 	public Func<BigInteger>? NextInput { private get; set; } = null;
+    public bool BlockOnInput { get; set; } = false;
 
-	private Queue<BigInteger> Input = new Queue<BigInteger>();
+	private BlockingCollection<BigInteger> Input = new BlockingCollection<BigInteger>();
 	private DefaultDictionary<BigInteger, BigInteger> Memory = new DefaultDictionary<BigInteger, BigInteger>(_ => 0);
 	private BigInteger IP;
 	private BigInteger RelativeBase;
@@ -35,7 +38,7 @@ public class IntCodeMachine {
 
 	public void Reset() {
 		RelativeBase = IP = 0;
-		Input.Clear();
+        while (Input.TryTake(out _)) { }
 		Memory.Clear();
 		for (int i = 0; i < InitialState.Length; i++) if (InitialState[i] != 0) Memory[i] = InitialState[i];
 		Terminated = false;
@@ -43,7 +46,7 @@ public class IntCodeMachine {
 
 	public void TakeInput(BigInteger num) {
 		if (Terminated) UnhandledInput?.Invoke(num);
-		else Input.Enqueue(num);
+		else Input.Add(num);
 	}
 	
 	public BigInteger? GetOutput(bool suppressEvent = true) {
@@ -55,7 +58,11 @@ public class IntCodeMachine {
 		return Output;
 	}
 
-	public IReadOnlyDictionary<BigInteger, BigInteger> Run(BigInteger? noun = null, BigInteger? verb = null) {
+    public void Run() {
+		while (Tick()) { }
+    }
+
+	public IReadOnlyDictionary<BigInteger, BigInteger> Run(BigInteger? noun, BigInteger? verb) {
 		if (noun.HasValue) Memory[1] = noun.Value;
 		if (verb.HasValue) Memory[2] = verb.Value;
 		while (Tick()) { }
@@ -87,18 +94,13 @@ public class IntCodeMachine {
 				IP += 4;
 				return true;
 			case 3: // in
-				if (Input.Count > 0) {
-					Write(1, Input.Dequeue());
-					IP += 2;
-					return true;
-				}
-				if (NextInput != null) {
-					Write(1, NextInput());
-					IP += 2;
-					return true;
-				}
-				return false; // work later
-			case 4: // out
+                if (BlockOnInput) Write(1, Input.Take());
+				else if (Input.TryTake(out var input)) Write(1, input);
+				else if (NextInput != null) Write(1, NextInput());
+                else return false; // work later
+				IP += 2;
+				return true;
+            case 4: // out
 				var output = Read(1);
 				if (!SuppressingOutputEvent) Outputting?.Invoke(output);
 				Output = output;
@@ -127,11 +129,11 @@ public class IntCodeMachine {
 				return true;
 			case 99: // halt
 				Terminated = true;
-				if (UnhandledInput == null) Input.Clear();
-				else while (Input.Any()) UnhandledInput?.Invoke(Input.Dequeue());
+				if (UnhandledInput == null) while (Input.TryTake(out _)) { }
+				else while (Input.TryTake(out var input)) UnhandledInput?.Invoke(input);
 				return false; // done
 
-			default: throw new ArgumentOutOfRangeException("opcode");
+			default: throw new ArgumentOutOfRangeException("opcode", Memory[IP], "never heard of it");
 		}
 	}
 }
@@ -153,6 +155,16 @@ public class IntCodeCluster {
 	public void Run() {
 		while (Tick()) { }
 	}
+    
+    public void RunConcurrently() {
+        var tasks = new Task[Machines.Count];
+        for (int i = 0; i < Machines.Count; i++) {
+            var machine = Machines[i];
+            machine.BlockOnInput = true;
+            tasks[i] = Task.Run(machine.Run);
+        }
+        Task.WaitAll(tasks);
+    }
 
 	public IntCodeMachine this[Index index] => Machines[index];
 
