@@ -49,6 +49,9 @@ public class IntCodeMachine {
 		else Input.Add(num);
 	}
 	
+	public void Poke(BigInteger address, BigInteger value) => Memory[address] = value;
+	public BigInteger Peek(BigInteger address) => Memory[address];
+	
 	public BigInteger? GetOutput(bool suppressEvent = true) {
 		GettingOutput = true;
 		SuppressingOutputEvent = suppressEvent;
@@ -61,13 +64,6 @@ public class IntCodeMachine {
     public void Run() {
 		while (Tick()) { }
     }
-
-	public IReadOnlyDictionary<BigInteger, BigInteger> Run(BigInteger? noun, BigInteger? verb) {
-		if (noun.HasValue) Memory[1] = noun.Value;
-		if (verb.HasValue) Memory[2] = verb.Value;
-		while (Tick()) { }
-		return Memory;
-	}
 
 	/// <summary>returns true iff work was done</summary>
 	public bool Tick() {

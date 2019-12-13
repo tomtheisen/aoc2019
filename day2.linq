@@ -1,15 +1,24 @@
-<Query Kind="Statements" />
+<Query Kind="Statements">
+  <Namespace>System.Numerics</Namespace>
+</Query>
 
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
 var machine = new IntCodeMachine();
-Console.WriteLine(machine.Run(12, 2)[0]);
+BigInteger Run(BigInteger noun, BigInteger verb) {
+	machine.Poke(1, noun);
+	machine.Poke(2, verb);
+	machine.Run();
+	return machine.Peek(0);
+}
+
+Console.WriteLine(Run(12, 2));
 
 for (int noun = 0; noun < 100; noun++) {
 	for (int verb = 0; verb < 100; verb++) {
 		machine.Reset();
-		var mem = machine.Run(noun, verb);
-		if (mem[0] == 19690720) Console.WriteLine(100 * noun + verb);
+		var mem = Run(noun, verb);
+		if (mem == 19690720) Console.WriteLine(100 * noun + verb);
 	}
 }
