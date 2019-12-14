@@ -7,19 +7,16 @@
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
-var board = new Dictionary<(int x, int y), int>();
+var board = new Plane<int>(0, (0, ' '), (1, '▓'), (2, '◘'), (3, '═'), (4, '○'));
+
 int maxBlocks = 0, blocks = 0, ballx = 0, padx = 0;
 
 var score = new DumpContainer(0).Dump("Score");
 var blocksContainer = new DumpContainer().Dump("Blocks");
-var boardContainer = new DumpContainer().Dump("Board");
+var boardContainer = new DumpContainer(board).Dump("Board");
 void ShowBoard() {
-	var height = board.Keys.Max(k => k.y) + 1;
-	var width = board.Keys.Max(k => k.x) + 1;
-	var result = Enumerable.Range(0, height).Select(_ => new string(' ',width).ToCharArray()).ToArray();
-	foreach (var ((x,y),t) in board) result[y][x] = " ▓◘═○"[t];
-	boardContainer.Content = string.Join('\n', result.Select(line => string.Concat(line)));
-    Thread.Sleep(150);
+	boardContainer.Refresh();
+    Thread.Sleep(30);
 }
 
 var machine = new IntCodeMachine { NextInput = () => Sign(ballx - padx)};
@@ -36,23 +33,21 @@ while (true) {
 		continue;
 	}
 	switch ((int)tile) {
-		case 0: {
-			if (board.TryGetValue(pos, out var exist) && exist == 2) blocksContainer.Content = $"{--blocks} / {maxBlocks}";
+		case 0:
+			if (board[(int)x, (int)y] == 2) blocksContainer.Content = $"{--blocks} / {maxBlocks}";
 			break;
-		}
-		case 2: {
-			if (!board.TryGetValue(pos, out var exist) || exist != 2) blocksContainer.Content = $"{++blocks} / {maxBlocks = Max(blocks, maxBlocks)}";
+		case 2:
+			if (board[(int)x, (int)y] != 2) blocksContainer.Content = $"{++blocks} / {maxBlocks = Max(blocks, maxBlocks)}";
 			break;
-		}
 		case 3:
 			padx = (int)x;
-	        board[pos] = 3;
-            ShowBoard();
+			board[(int)x, (int)y] = 3;
+			ShowBoard();
 			break;
 		case 4:
 			ballx = (int)x;
 			break;
 	}
-	board[pos] = (int)tile;
+	board[(int)x, (int)y] = (int)tile;
 }
 ShowBoard();
