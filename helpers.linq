@@ -95,6 +95,8 @@ public class Plane<T> where T : notnull {
 		}
 	}
 	
+	public int Count => Contents.Count;
+	
 	public void Clear() {
 		Contents.Clear();
 		MinX = MaxX = MinY = MaxY = 0;
