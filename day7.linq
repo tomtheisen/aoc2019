@@ -11,7 +11,7 @@ BigInteger BestOutput(List<int> phases) {
 	BigInteger result = int.MinValue;
 
 	// build vm cluster
-    var program = GetAocBigIntegers();
+    var program = GetAocLongs();
     var machines = "ABCDE".Select(c => new IntCodeMachine(program, "Amp " + c));
 	var cluster = new IntCodeCluster(machines);
     

@@ -19,7 +19,7 @@ for (int stepsSinceDiscovery = 0; stepsSinceDiscovery < 5_000; stepsSinceDiscove
 	int input = dir;
 	machine.TakeInput(input);
 	int lastSteps = steps[(x, y)];
-	switch ((int)machine.GetOutput().Value) {
+	switch (machine.GetOutput()!) {
 		case 0:
 			switch (input) {
 				case 1: plane[x, y - 1] = '#'; break;
@@ -56,6 +56,7 @@ for (int stepsSinceDiscovery = 0; stepsSinceDiscovery < 5_000; stepsSinceDiscove
 			break;
 	}
 	boardContainer.Refresh();
+	Thread.Sleep(1);
 }
 
 plane[x, y] = '.';

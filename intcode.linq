@@ -1,7 +1,8 @@
 <Query Kind="Program">
-  <Namespace>System.Numerics</Namespace>
-  <Namespace>System.Diagnostics.CodeAnalysis</Namespace>
+  <Namespace>static System.Math</Namespace>
   <Namespace>System.Collections.Concurrent</Namespace>
+  <Namespace>System.Diagnostics.CodeAnalysis</Namespace>
+  <Namespace>System.Numerics</Namespace>
   <Namespace>System.Threading.Tasks</Namespace>
 </Query>
 
@@ -11,26 +12,26 @@ void Main() {
 }
 
 public class IntCodeMachine {
-	public event Action<BigInteger>? Outputting;
-	public event Action<BigInteger>? UnhandledInput;
+	public event Action<long>? Outputting;
+	public event Action<long>? UnhandledInput;
 
-	public BigInteger[] InitialState { get; }
+	public long[] InitialState { get; }
 	public bool Terminated { get; private set; } = true;
 	public string? Name { get; private set; }
-	public Func<BigInteger>? NextInput { private get; set; } = null;
+	public Func<long>? NextInput { private get; set; } = null;
     public bool BlockOnInput { get; set; } = false;
 
-	private BlockingCollection<BigInteger> Input = new BlockingCollection<BigInteger>();
-	private DefaultDictionary<BigInteger, BigInteger> Memory = new DefaultDictionary<BigInteger, BigInteger>(_ => 0);
-	private BigInteger IP;
-	private BigInteger RelativeBase;
+	private BlockingCollection<long> Input = new BlockingCollection<long>();
+	private DefaultDictionary<long, long> Memory = new DefaultDictionary<long, long>(_ => 0);
+	private long IP;
+	private long RelativeBase;
 	private bool GettingOutput = false;
 	private bool SuppressingOutputEvent = false;
-	private BigInteger? Output = default;
+	private long? Output = default;
 
-	public IntCodeMachine() : this(GetAocBigIntegers()) { }
+	public IntCodeMachine() : this(GetAocLongs()) { }
 
-	public IntCodeMachine(IReadOnlyList<BigInteger> initialState, string? name = default) {
+	public IntCodeMachine(IReadOnlyList<long> initialState, string? name = default) {
 		InitialState = initialState.ToArray();
 		Name = name;
 		Reset();
@@ -44,15 +45,15 @@ public class IntCodeMachine {
 		Terminated = false;
 	}
 
-	public void TakeInput(BigInteger num) {
+	public void TakeInput(long num) {
 		if (Terminated) UnhandledInput?.Invoke(num);
 		else Input.Add(num);
 	}
 	
-	public void Poke(BigInteger address, BigInteger value) => Memory[address] = value;
-	public BigInteger Peek(BigInteger address) => Memory[address];
+	public void Poke(long address, long value) => Memory[address] = value;
+	public long Peek(long address) => Memory[address];
 	
-	public BigInteger? GetOutput(bool suppressEvent = true) {
+	public long? GetOutput(bool suppressEvent = true) {
 		GettingOutput = true;
 		SuppressingOutputEvent = suppressEvent;
 		Output = default;
@@ -69,16 +70,16 @@ public class IntCodeMachine {
 	public bool Tick() {
 		if (Terminated) return false;
 
-		BigInteger GetResolvedAddress(int idx) => 
-            (int)(Memory[IP] / BigInteger.Pow(10, idx + 1) % 10) switch { 
+		long GetResolvedAddress(int idx) => 
+            (Memory[IP] / (int)Pow(10, idx + 1) % 10) switch { 
                 0 => Memory[IP + idx], 
                 1 => IP + idx, 
                 2 => RelativeBase + Memory[IP + idx],
                 _ => throw new Exception($"Opcode modifier for {Memory[IP]} out of range"),
             };
             
-        BigInteger Read(int idx) => Memory[GetResolvedAddress(idx)];
-		void Write(int idx, BigInteger value) => Memory[GetResolvedAddress(idx)] = value;
+        long Read(int idx) => Memory[GetResolvedAddress(idx)];
+		void Write(int idx, long value) => Memory[GetResolvedAddress(idx)] = value;
 		
 		switch ((int)(Memory[IP] % 100)) {
 			case 1: // add

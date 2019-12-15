@@ -32,7 +32,7 @@ while (true) {
 		score.Content = tile;
 		continue;
 	}
-	switch ((int)tile) {
+	switch (tile) {
 		case 0:
 			if (board[(int)x, (int)y] == 2) blocksContainer.Content = $"{--blocks} / {maxBlocks}";
 			break;

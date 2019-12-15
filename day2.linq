@@ -6,7 +6,7 @@
 #load ".\intcode.linq"
 
 var machine = new IntCodeMachine();
-BigInteger Run(BigInteger noun, BigInteger verb) {
+BigInteger Run(long noun, long verb) {
 	machine.Poke(1, noun);
 	machine.Poke(2, verb);
 	machine.Run();
