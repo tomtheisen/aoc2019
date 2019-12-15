@@ -92,7 +92,7 @@ public class Plane<T> where T : notnull {
 				MinX = Min(MinX, x);
 				MaxX = Max(MaxX, x);
 				MinY = Min(MinY, y);
-				MaxY = Max(MaxX, y);
+				MaxY = Max(MaxY, y);
 			}
 			Contents[new Position(x, y)] = value;
 		}
