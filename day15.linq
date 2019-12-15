@@ -11,9 +11,10 @@ var steps = new Dictionary<(int x, int y), int> {[(0, 0)] = 0};
 var machine = new IntCodeMachine();
 var plane = new Plane<char>(' ') { [0, 0] = 'D' };
 
-var boardContainer = new DumpContainer(plane).Dump();
+var planeContainer = new DumpContainer(plane).Dump();
 int x = 0, y = 0;
 int dir = 1; // north (1), south (2), west (3), and east (4)
+var oxygen = new HashSet<(int x, int y)>();
 
 for (int stepsSinceDiscovery = 0; stepsSinceDiscovery < 5_000; stepsSinceDiscovery++) {
 	int input = dir;
@@ -51,15 +52,32 @@ for (int stepsSinceDiscovery = 0; stepsSinceDiscovery < 5_000; stepsSinceDiscove
 			}
 			if (!steps.ContainsKey((x, y))) {
 				steps[(x, y)] = lastSteps + 1;
+				oxygen.Add((x, y));
 				WriteLine($"Oxygen {(x, y)} steps {lastSteps + 1}");
 			}
 			break;
 	}
-	boardContainer.Refresh();
-	Thread.Sleep(1);
+	planeContainer.Refresh();
+	//Thread.Sleep(1); // for sweet animation
 }
-
 plane[x, y] = '.';
-boardContainer.Refresh();
 
-// part 2 is done in a stax program lol
+(int x, int y)[] GetNeighbors(int x, int y) 
+	=> new[] {(x - 1, y), (x, y + 1), (x + 1, y), (x, y - 1), };
+
+int minutes = -1, startCount;
+do {
+	var neighbors = (
+		from o in oxygen
+		from n in GetNeighbors(o.x, o.y)
+		where plane[n.x, n.y] == '.'
+		select (n.x, n.y)
+	).ToList();
+		
+	startCount = oxygen.Count;
+	oxygen.UnionWith(neighbors);
+	foreach (var (nx, ny) in oxygen) plane[nx, ny] = 'O';	
+	minutes += 1;
+	planeContainer.Refresh();
+} while (oxygen.Count > startCount);
+minutes.Dump();
