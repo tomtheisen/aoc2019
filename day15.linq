@@ -60,3 +60,5 @@ for (int stepsSinceDiscovery = 0; stepsSinceDiscovery < 5_000; stepsSinceDiscove
 
 plane[x, y] = '.';
 boardContainer.Refresh();
+
+// part 2 is done in a stax program lol
