@@ -67,6 +67,9 @@ public class Plane<T> where T : notnull {
 	public int MinY { get; private set; }
 	public int MaxY { get; private set; }
 	
+	public int Width => MaxX - MinX + 1;
+	public int Height => MaxY - MinY + 1;
+	
 	private Dictionary<Position, T> Contents = new Dictionary<Position, T>();
 	private IReadOnlyDictionary<T, char>? CharMap = null;
 	private T Default;
