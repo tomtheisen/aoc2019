@@ -8,6 +8,7 @@
 #load ".\intcode.linq"
 
 const bool animate = true;
+const char Wall = '█', Floor = '░', Fog = '?', Drone = '•', O2 = '≈';
 
 enum Direction { North = 1, South = 2, West = 3, East = 4 }
 Direction[] AllDirections = { Direction.North, Direction.South, Direction.West, Direction.East };
@@ -56,7 +57,7 @@ void Main() {
  	// part 1
 	var steps = new Dictionary<Position, int> {[Position.Origin] = 0};
 	var machine = new IntCodeMachine();
-	var plane = new Plane<char>(' ') { [0, 0] = 'D' };
+	var plane = new Plane<char>(Fog) { [0, 0] = Drone };
 	
 	var planeContainer = animate ? new DumpContainer(plane).Dump() : null;
 	Position pos = Position.Origin, oxpos = default;
@@ -70,9 +71,9 @@ void Main() {
 			
 		while (frontier.Any()) {
 			var (firstStep, pos) = frontier.Dequeue();
-			if (plane[pos.X, pos.Y] == '#' || visited.Contains(pos)) continue;
+			if (plane[pos.X, pos.Y] == Wall || visited.Contains(pos)) continue;
 			visited.Add(pos);
-			if (plane[pos.X, pos.Y] == ' ') return firstStep;
+			if (plane[pos.X, pos.Y] == Fog) return firstStep;
 			foreach (var dir in AllDirections)
 				frontier.Enqueue((firstStep, pos.GetNeighbor(dir)));
 		}
@@ -86,17 +87,17 @@ void Main() {
 		Position lastPos = pos, target = pos.GetNeighbor(dir.Value);
 		switch (machine.GetOutput() ?? throw new Exception("halted?")) {
 			case 0: // failed to move
-				plane[target.X, target.Y] = '#';
+				plane[target.X, target.Y] = Wall;
 				break;
 			case 1: // regular move
-				if (plane[pos.X, pos.Y] == 'D') plane[pos.X, pos.Y] = '.';
+				if (plane[pos.X, pos.Y] == Drone) plane[pos.X, pos.Y] = Floor;
 				pos = target;
-				plane[pos.X, pos.Y] = 'D';
+				plane[pos.X, pos.Y] = Drone;
 				if (!steps.ContainsKey(pos)) steps[pos] = steps[lastPos] + 1;
 				break;
 			case 2: // moved to o2
-				plane[pos.X, pos.Y] = '.';
-				plane[target.X, target.Y] = 'O';
+				plane[pos.X, pos.Y] = Floor;
+				plane[target.X, target.Y] = O2;
 				oxpos = pos = target;
 				if (!steps.ContainsKey(pos))
 					WriteLine($"Oxygen@{pos} steps:{ steps[pos] = steps[lastPos] + 1 }");
@@ -106,15 +107,15 @@ void Main() {
 		planeContainer?.Refresh();
 		if (animate) Thread.Sleep(10);
 	}
-
+	
 	// part 2
-	plane[pos.X, pos.Y] = plane[oxpos.X, oxpos.Y] = '.';
+	plane[pos.X, pos.Y] = plane[oxpos.X, oxpos.Y] = Floor;
 	int minutes = -2;
 	for (List<Position> frontier = new List<Position>{ oxpos }, newFrontier; frontier.Any(); minutes++) {
 		newFrontier = new List<Position>();
 		foreach (var fpos in frontier) {
-			if (plane[fpos.X, fpos.Y] != '.') continue;
-			plane[fpos.X, fpos.Y] = 'O';
+			if (plane[fpos.X, fpos.Y] != Floor) continue;
+			plane[fpos.X, fpos.Y] = O2;
 			foreach (var dir in AllDirections)
 				newFrontier.Add(fpos.GetNeighbor(dir));
 		}

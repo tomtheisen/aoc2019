@@ -133,6 +133,24 @@ public class IntCodeMachine {
 			default: throw new ArgumentOutOfRangeException("opcode", Memory[IP], "never heard of it");
 		}
 	}
+	
+	public IntCodeMachine Clone() {
+		var result = new IntCodeMachine(InitialState, Name) {
+			Terminated = Terminated,
+			NextInput = NextInput,
+			BlockOnInput = BlockOnInput,
+			IP = IP,
+			RelativeBase = RelativeBase,
+		};
+		foreach (var item in Input) result.Input.Add(item);
+		if (this.Outputting != null) 
+			foreach (Action<long> handler in this.Outputting.GetInvocationList())
+				result.Outputting += handler;
+		if (this.UnhandledInput != null)
+			foreach (Action<long> handler in this.UnhandledInput.GetInvocationList()) 
+				result.UnhandledInput += handler;
+		return result;
+	}
 }
 
 public class IntCodeCluster {
