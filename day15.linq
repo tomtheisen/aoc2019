@@ -7,7 +7,11 @@
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
+const bool animate = true;
+
 enum Direction { North = 1, South = 2, West = 3, East = 4 }
+Direction[] AllDirections = { Direction.North, Direction.South, Direction.West, Direction.East };
+
 Direction Left(Direction d) => d switch {
 	Direction.North => Direction.West,
 	Direction.West => Direction.South,
@@ -49,58 +53,74 @@ struct Position {
 }
 
 void Main() {
+ 	// part 1
 	var steps = new Dictionary<Position, int> {[Position.Origin] = 0};
 	var machine = new IntCodeMachine();
 	var plane = new Plane<char>(' ') { [0, 0] = 'D' };
 	
-	var planeContainer = new DumpContainer(plane).Dump();
-	var pos = Position.Origin;
-	var dir = Direction.North;
-	var oxygen = new HashSet<Position>();
+	var planeContainer = animate ? new DumpContainer(plane).Dump() : null;
+	Position pos = Position.Origin, oxpos = default;
 	
-	for (int staleness = 0; staleness < 5_000; staleness++) {
+	Direction? GetMove() {
+		var visited = new HashSet<Position> { pos };
+		var frontier = new Queue<(Direction firstStep, Position position)>();
+
+		foreach (var dir in AllDirections)
+			frontier.Enqueue((dir, pos.GetNeighbor(dir)));
+			
+		while (frontier.Any()) {
+			var (firstStep, pos) = frontier.Dequeue();
+			if (plane[pos.X, pos.Y] == '#' || visited.Contains(pos)) continue;
+			visited.Add(pos);
+			if (plane[pos.X, pos.Y] == ' ') return firstStep;
+			foreach (var dir in AllDirections)
+				frontier.Enqueue((firstStep, pos.GetNeighbor(dir)));
+		}
+		return null;
+	}
+	
+	while (true) {
+		var dir = GetMove();
+		if (dir == null) break;
 		machine.TakeInput((int)dir);
-		Position lastPos = pos, target = pos.GetNeighbor(dir);
-		switch (machine.GetOutput()!) {
+		Position lastPos = pos, target = pos.GetNeighbor(dir.Value);
+		switch (machine.GetOutput() ?? throw new Exception("halted?")) {
 			case 0: // failed to move
 				plane[target.X, target.Y] = '#';
-				dir = Right(dir);
 				break;
 			case 1: // regular move
-				if (plane[pos.X, pos.Y] == ' ') staleness = 0;
 				if (plane[pos.X, pos.Y] == 'D') plane[pos.X, pos.Y] = '.';
 				pos = target;
 				plane[pos.X, pos.Y] = 'D';
 				if (!steps.ContainsKey(pos)) steps[pos] = steps[lastPos] + 1;
-				dir = Left(dir);
 				break;
 			case 2: // moved to o2
 				plane[pos.X, pos.Y] = '.';
 				plane[target.X, target.Y] = 'O';
-				oxygen.Add(pos = target);
+				oxpos = pos = target;
 				if (!steps.ContainsKey(pos))
-					WriteLine($"Oxygen {pos} steps { steps[pos] = steps[lastPos] + 1 }");
+					WriteLine($"Oxygen@{pos} steps:{ steps[pos] = steps[lastPos] + 1 }");
 				break;
 		}
-		planeContainer.Refresh();
-		// Thread.Sleep(1); // for sweet animation
+		
+		planeContainer?.Refresh();
+		if (animate) Thread.Sleep(10);
 	}
-	plane[pos.X, pos.Y] = '.';
-	
-	int minutes = -1, startCount;
-	do {
-		var neighbors = (
-			from o in oxygen
-			from n in o.GetNeighbors()
-			where plane[n.X, n.Y] == '.'
-			select n
-		).ToList();
-			
-		startCount = oxygen.Count;
-		oxygen.UnionWith(neighbors);
-		foreach (var (nx, ny) in oxygen) plane[nx, ny] = 'O';	
-		minutes += 1;
-		planeContainer.Refresh();
-	} while (oxygen.Count > startCount);
-	minutes.Dump();
+
+	// part 2
+	plane[pos.X, pos.Y] = plane[oxpos.X, oxpos.Y] = '.';
+	int minutes = -2;
+	for (List<Position> frontier = new List<Position>{ oxpos }, newFrontier; frontier.Any(); minutes++) {
+		newFrontier = new List<Position>();
+		foreach (var fpos in frontier) {
+			if (plane[fpos.X, fpos.Y] != '.') continue;
+			plane[fpos.X, fpos.Y] = 'O';
+			foreach (var dir in AllDirections)
+				newFrontier.Add(fpos.GetNeighbor(dir));
+		}
+		frontier = newFrontier;
+		planeContainer?.Refresh();
+		if (animate) Thread.Sleep(10);
+	}
+	WriteLine($"Total O2 in {minutes} minutes");
 }
