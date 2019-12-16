@@ -111,8 +111,8 @@ void Main() {
 	// part 2
 	plane[pos.X, pos.Y] = plane[oxpos.X, oxpos.Y] = Floor;
 	int minutes = -2;
-	for (List<Position> frontier = new List<Position>{ oxpos }, newFrontier; frontier.Any(); minutes++) {
-		newFrontier = new List<Position>();
+	for (var frontier = new List<Position>{ oxpos }; frontier.Any(); minutes++) {
+		var newFrontier = new List<Position>();
 		foreach (var fpos in frontier) {
 			if (plane[fpos.X, fpos.Y] != Floor) continue;
 			plane[fpos.X, fpos.Y] = O2;
