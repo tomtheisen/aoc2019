@@ -5,29 +5,31 @@
 </Query>
 
 #load ".\helpers.linq"
-#load ".\intcode.linq"
 
-string input = string.Concat(
-	Enumerable.Repeat(GetAocLines()[0], 10_000));
-
-int[] coefficients = {0,1,0,-1};
-
-var signal = input.Select(c => (int)(c - '0')).ToArray();
-int[] newSignal = new int[signal.Length];
-
-for (int phase = 0; phase < 100; phase++) {
-	Console.WriteLine(phase);
-	for (int i = 0; i < signal.Length; i++) {
-		int e = 0;
-		for (int j = 0; j < signal.Length; j++) {
-			e += coefficients[-~j / -~i & 3] * signal[j];
+string Solve(string input, int messageStart) {
+	var sig = input.Select(c => (int)(c - '0')).ToArray();
+	int[] newsig = new int[sig.Length], sum = new int[sig.Length + 1];
+	
+	for (int phase = 0; phase < 100; phase++) {
+		for (int i = messageStart + 1; i < sum.Length; i++) {
+			sum[i] = sum[i - 1] + sig[i - 1];
 		}
-		newSignal[i] = Abs(e % 10);
+		
+		for (int run = messageStart + 1; run <= sig.Length; run++) {
+			int e = 0;
+			for (int j = run - 1; j < sig.Length; j += run * 4) {
+				e += sum[Min(sig.Length, j + run)] - sum[j];
+				e -= sum[Min(sig.Length, j + run * 3)] - sum[Min(sig.Length, j + run * 2)];
+			}
+			newsig[run - 1] = Abs(e % 10);
+		}
+		(sig, newsig) = (newsig, sig);
 	}
-	(signal, newSignal) = (newSignal, signal);
+	
+	var message = sig.Skip(messageStart).Take(8);
+	return string.Concat(message);
 }
 
-var message = signal
-	.Skip(int.Parse(input.Substring(0,7)))
-	.Take(8);
-string.Concat(message).Dump();
+string input = GetAocLines()[0];
+Solve(input, 0).Dump();
+Solve(string.Concat(Enumerable.Repeat(input, 10_000)), int.Parse(input.Substring(0, 7))).Dump();
