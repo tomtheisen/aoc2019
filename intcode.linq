@@ -50,6 +50,10 @@ public class IntCodeMachine {
 		else Input.Add(num);
 	}
 	
+	public void TakeInput(string s) {
+		foreach (var c in s) TakeInput(c);
+	}
+	
 	public void Poke(long address, long value) => Memory[address] = value;
 	public long Peek(long address) => Memory[address];
 	

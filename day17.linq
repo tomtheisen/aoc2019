@@ -14,16 +14,12 @@ machine.Outputting += n => {
 	else WriteLine(n);
 };
 
-void AsciiInput(string instr) {
-	foreach (char c in instr) machine.TakeInput((int)c);
-}
-
-AsciiInput(@"
+machine.TakeInput(@"
 C,B,C,B,A,A,B,C,B,A
 R,12,L,12,R,6
 R,10,R,12,L,12
 L,10,R,10,L,10,L,10
 ".TrimStart().Replace("\r", ""));
-AsciiInput("n\n"); //video
+machine.TakeInput("n\n"); //video
 
 machine.Run();
