@@ -188,6 +188,9 @@ public class IntCodeCluster {
 	public IntCodeMachine this[Index index] => Machines[index];
 
 	public int Count => Machines.Count;
+	
+	public IntCodeCluster Clone() 
+		=> new IntCodeCluster(this.Machines.Select(m => m.Clone()));
 }
 
 public class DefaultDictionary<TKey, TValue> : IDictionary<TKey, TValue>, IReadOnlyDictionary<TKey, TValue>
