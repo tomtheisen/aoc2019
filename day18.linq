@@ -15,23 +15,30 @@ private static int TotalKeys = GetAocInput().RegexFindAll("[a-z]").Count;
 struct State {
 	public int x;
 	public int y;
-	public string keys;
+	public int keyset;
+	public int keycount;
 	public int moves;
 	
 	public IEnumerable<State> GetNext() {
 		(int x, int y)[] cand = {(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)};
 		
-		var self = this;
-		return from c in cand
-			let ch = Board[c.y][c.x]
-			where ch != '#'
-			where ch < 'A' || ch > 'Z' || self.keys.Contains(ch, StringComparison.InvariantCultureIgnoreCase)
-			let isNewKey = ch >= 'a' && ch <= 'z' && !self.keys.Contains(ch)
-			select new State { 
-				x = c.x, y = c.y, 
-				keys = isNewKey ? self.keys + ch : self.keys,
-				moves = self.moves + 1,
+		foreach (var c in cand) {
+			var ch = Board[c.y][c.x];
+			if (ch == '#') continue;
+			bool haveKey = (this.keyset >> (char.ToLower(ch) - 'a') & 1) == 1;
+			if (ch >= 'A' && ch <= 'Z' && !haveKey) continue;
+			bool isNewKey = ch >= 'a' && ch <= 'z' && !haveKey;
+			
+			yield return new State {
+				x = c.x,
+				y = c.y,
+				keyset = isNewKey
+					? this.keyset | (1 << ch - 'a')
+					: this.keyset,
+				keycount = isNewKey ? this.keycount + 1 : this.keycount,
+				moves = this.moves + 1,
 			};
+		}
 	}
 }  
 
@@ -63,11 +70,11 @@ void Main() {
 	SealDeadEnds();
 	foreach (var row in Board) WriteLine(string.Concat(row));
 	var (x, y) = GetStart();
-	var startState = new State{ x = x, y = y, keys = "" };
+	var startState = new State{ x = x, y = y, };
 	
 	var frontier = new Queue<State>();
 	frontier.Enqueue(startState);
-	var seen = new HashSet<(int x, int y, string keys)>();
+	var seen = new HashSet<(int x, int y, int keyset)>();
 	
 	int mostKeysSeen = 0;
 	var mostContainer = new DumpContainer(mostKeysSeen).Dump("Most Keys Seen");
@@ -78,18 +85,15 @@ void Main() {
 	while (frontier.Any()) {
 		var curr = frontier.Dequeue();
 
-		if (seen.Contains((curr.x, curr.y, curr.keys))) continue;
-		seen.Add((curr.x, curr.y, curr.keys));
+		if (seen.Contains((curr.x, curr.y, curr.keyset))) continue;
+		seen.Add((curr.x, curr.y, curr.keyset));
 		
-		//experimental pruning
-		if (curr.keys.Length < mostKeysSeen - 1) continue;
-
-		mostContainer.Content = mostKeysSeen = Max(mostKeysSeen, curr.keys.Length);
+		mostContainer.Content = mostKeysSeen = Max(mostKeysSeen, curr.keycount);
 		frontierSize.Content = frontier.Count;
 		seenSize.Content = seen.Count;
 		movesContainer.Content = curr.moves;
 		
-		if (curr.keys.Length == TotalKeys) {
+		if (curr.keycount == TotalKeys) {
 			curr.Dump();
 			return;
 		}
