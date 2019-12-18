@@ -21,6 +21,16 @@ static List<uint> GetAocUIntegers() => GetAocInput().RegexFindAll(@"\d+").Select
 static List<long> GetAocLongs() => GetAocInput().RegexFindAll(@"-?\d+").Select(long.Parse).ToList();
 static List<double> GetAocFloats() => GetAocInput().RegexFindAll(@"-?\d+(\.\d+)?").Select(double.Parse).ToList();
 
+static Plane<char> GetAocCharPlane() {
+    var result = new Plane<char>(' ');
+    int y = 0;
+    foreach (var row in GetAocLines()) {
+        for (int x = 0; x < row.Length; x++) result[x, y] = row[x];
+        y += 1;
+    }
+    return result;
+}
+
 public static partial class Extensions {
 	public static List<string> RegexFindAll(this string @this, string pattern)
 		=> Regex.Matches(@this, pattern).Where(m => m.Success).Select(m => m.Value).ToList();
