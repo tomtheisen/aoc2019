@@ -11,33 +11,61 @@ private static char[][] Board = GetAocLines().Select(l => l.ToCharArray()).ToArr
 private static int Width = Board[0].Length;
 private static int Height = Board.Length;
 private static int TotalKeys = GetAocInput().RegexFindAll("[a-z]").Count;
+static UserQuery() {
+	
+}
 
 struct State {
-	public int x;
-	public int y;
+	public int x0;
+	public int y0;
+	public int x1;
+	public int y1;
+	public int x2;
+	public int y2;
+	public int x3;
+	public int y3;
+	public int active;
+	
 	public int keyset;
 	public int keycount;
 	public int moves;
 	
+	public (int x, int y) this[int i]{
+		get => i switch { 0 => (x0, y0), 1 => (x1, y1), 2 => (x2, y2), 3 => (x3, y3) };
+		set {
+			switch (i) {
+				case 0: (x0, y0) = value; break;
+				case 1: (x1, y1) = value; break;
+				case 2: (x2, y2) = value; break;
+				case 3: (x3, y3) = value; break;
+			}
+		}
+	}
+
 	public IEnumerable<State> GetNext() {
-		(int x, int y)[] cand = {(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)};
-		
-		foreach (var c in cand) {
-			var ch = Board[c.y][c.x];
-			if (ch == '#') continue;
-			bool haveKey = (this.keyset >> (char.ToLower(ch) - 'a') & 1) == 1;
-			if (ch >= 'A' && ch <= 'Z' && !haveKey) continue;
-			bool isNewKey = ch >= 'a' && ch <= 'z' && !haveKey;
-			
-			yield return new State {
-				x = c.x,
-				y = c.y,
-				keyset = isNewKey
-					? this.keyset | (1 << ch - 'a')
-					: this.keyset,
-				keycount = isNewKey ? this.keycount + 1 : this.keycount,
-				moves = this.moves + 1,
-			};
+		var ch = Board[this[active].y][this[active].x];
+		if (ch == '#') yield break;
+		bool haveKey = (this.keyset >> (char.ToLower(ch) - 'a') & 1) == 1;
+		if (ch >= 'A' && ch <= 'Z' && !haveKey) yield break;
+		bool isNewKey = ch >= 'a' && ch <= 'z' && !haveKey;
+
+		for (int i = 0; i < 4; i++) {
+			if (i != active && !isNewKey) continue;
+
+			var (x, y) = this[i];
+			(int x, int y)[] cand = { (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1) };
+
+			foreach (var c in cand) {
+				State next = this;
+				next[i] = (c.x, c.y);
+				next.moves += 1;
+				if (isNewKey) {
+					next.active = i;
+					next.keyset |= 1 << ch - 'a';
+					next.keycount += 1;
+				}
+				yield return next;
+			}
 		}
 	}
 }  
@@ -68,13 +96,27 @@ void SealDeadEnds() {
 
 void Main() {
 	SealDeadEnds();
-	foreach (var row in Board) WriteLine(string.Concat(row));
 	var (x, y) = GetStart();
-	var startState = new State{ x = x, y = y, };
+	Board[y][x] = '#';
+	Board[y - 1][x] = Board[y + 1][x] = Board[y][x - 1] = Board[y][x + 1] = '#';
+	Board[y - 1][x - 1] = Board[y + 1][x - 1] = Board[y - 1][x + 1] = Board[y + 1][x + 1] = '@';
+	
+	foreach (var row in Board) WriteLine(string.Concat(row));
+
+	var startState = new State{ 
+		x0 = x-1, y0 = y-1, 
+		x1 = x-1, y1 = y+1, 
+		x2 = x+1, y2 = y-1, 
+		x3 = x+1, y3 = y+1, 
+	};
 	
 	var frontier = new Queue<State>();
-	frontier.Enqueue(startState);
-	var seen = new HashSet<(int x, int y, int keyset)>();
+	for (int i = 0; i < 4; i++) {
+		startState.active = i;
+		frontier.Enqueue(startState);
+	}
+
+	var seen = new HashSet<(int active, int x, int y, int keyset)>();
 	
 	int mostKeysSeen = 0;
 	var mostContainer = new DumpContainer(mostKeysSeen).Dump("Most Keys Seen");
@@ -85,8 +127,9 @@ void Main() {
 	while (frontier.Any()) {
 		var curr = frontier.Dequeue();
 
-		if (seen.Contains((curr.x, curr.y, curr.keyset))) continue;
-		seen.Add((curr.x, curr.y, curr.keyset));
+		var mapkey = (curr.active, curr[curr.active].x, curr[curr.active].y, curr.keyset);
+		if (seen.Contains(mapkey)) continue;
+		seen.Add(mapkey);
 		
 		mostContainer.Content = mostKeysSeen = Max(mostKeysSeen, curr.keycount);
 		frontierSize.Content = frontier.Count;
