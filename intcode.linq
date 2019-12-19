@@ -50,6 +50,10 @@ public class IntCodeMachine {
 		else Input.Add(num);
 	}
 	
+	public void TakeInput(params long[] nums) {
+		foreach (long num in nums) TakeInput(num);
+	}
+	
 	public void TakeInput(string s) {
 		foreach (var c in s) TakeInput(c);
 	}
