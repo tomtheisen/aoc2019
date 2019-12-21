@@ -127,3 +127,69 @@ public class Plane<T> where T : notnull {
 		return sb.ToString();
 	}
 }
+
+internal sealed class KeyComparer<T> : IComparer<T> {
+    private Func<T, IComparable> KeyGetter;
+    public KeyComparer(Func<T, IComparable> keyGetter) => KeyGetter = keyGetter;
+    public int Compare(T x, T y) => KeyGetter(x).CompareTo(KeyGetter(y));
+}
+
+static class PriorityQueue {
+    public static PriorityQueue<T> Create<T>() where T : IComparable
+        => new PriorityQueue<T>(n => n);
+}
+
+class PriorityQueue<T> : IReadOnlyCollection<T> {
+    private List<T> Heap = new List<T>();
+    private IComparer<T> Comparer;
+    
+    public PriorityQueue(IComparer<T> comparer) {
+        Comparer = comparer;
+    }
+    public PriorityQueue(Func<T, IComparable> priorityGetter)
+        : this(new KeyComparer<T>(priorityGetter)) { }
+
+    [Obsolete]
+    private void AssertHeapification() {
+        for (int i = 1; i < Heap.Count; i++)
+            if (Comparer.Compare(Heap[i], Heap[i - 1 >> 1]) > 0)
+                throw new Exception($"bad heapify at {i}");
+    }
+    
+    private void Reheap(int i) {
+        for (int j; i > 0; i = j) {
+            j = i - 1 >> 1;
+            if (Comparer.Compare(Heap[i], Heap[j]) <= 0) break;
+            (Heap[i], Heap[j]) = (Heap[j], Heap[i]);
+        }
+        //AssertHeapification();
+    }
+
+    public void Add(T item) {
+        Heap.Add(item ?? throw new ArgumentNullException(nameof(item)));
+        Reheap(Heap.Count - 1);
+    }
+    public T Peek() => Heap.Count > 0
+        ? Heap[0]
+        : throw new InvalidOperationException("Queue Empty");
+    public T Dequeue() {
+        var result = Peek();
+        int i = 0;
+        for (; i * 2 + 1 < Heap.Count; ) {
+            int a = 2 * i + 1, b = a + 1;
+            bool useA = b == Heap.Count || Comparer.Compare(Heap[a], Heap[b]) > 0;
+            Heap[i] = Heap[i = useA ? a: b];
+        }
+        Heap[i] = Heap[^1];
+        Reheap(i);
+        Heap.RemoveAt(Heap.Count - 1);
+        return result;
+    }
+
+    public int Count => Heap.Count;
+    public bool IsReadOnly => false;
+    public void Clear() => Heap.Clear();
+    public bool Contains(T item) => Heap.Contains(item);
+    public IEnumerator<T> GetEnumerator() => Heap.GetEnumerator();
+    IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
+}
