@@ -29,7 +29,9 @@ public class IntCodeMachine {
 	private bool SuppressingOutputEvent = false;
 	private long? Output = default;
 
-	public IntCodeMachine() : this(GetAocLongs()) { }
+	public IntCodeMachine() : this(GetAocLongs()) { 
+		if (Memory.Count == 0) throw new Exception("No IntCode program found.");
+	}
 
 	public IntCodeMachine(IReadOnlyList<long> initialState, string? name = default) {
 		InitialState = initialState.ToArray();
@@ -57,6 +59,8 @@ public class IntCodeMachine {
 	public void TakeInput(string s) {
 		foreach (var c in s) TakeInput(c);
 	}
+	
+	public void TakeInputLine(string s) => TakeInput(s + '\n');
 	
 	public void Poke(long address, long value) => Memory[address] = value;
 	public long Peek(long address) => Memory[address];
