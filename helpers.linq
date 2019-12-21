@@ -1,6 +1,7 @@
 <Query Kind="Program">
   <Namespace>static System.Math</Namespace>
   <Namespace>System.Numerics</Namespace>
+  <Namespace>System.Diagnostics.CodeAnalysis</Namespace>
 </Query>
 
 void Main() {
@@ -79,7 +80,7 @@ public static partial class Extensions {
 
 public enum Direction { Up, Down, Left, Right }
 
-public struct Point {
+public struct Point : IEquatable<Point> {
 	public int X;
 	public int Y;
 	public Point(int x, int y) => (X, Y) = (x, y);
@@ -87,6 +88,9 @@ public struct Point {
 
 	public override string ToString() => $"({X}, {Y})";
 	object ToDump() => ToString();
+
+	public override int GetHashCode() => unchecked(X * 0xffff + Y);
+	public bool Equals(Point other) => X == other.X && Y == other.Y;
 
 	public Point Up => new Point(X, Y - 1);
 	public Point Down => new Point(X, Y + 1);
@@ -114,7 +118,7 @@ public struct Point {
 	};
 }
 
-public struct Bearing {
+public struct Bearing : IEquatable<Bearing> {
 	public Point Position;
 	public Direction Direction;
 	
@@ -122,6 +126,9 @@ public struct Bearing {
 		Position = position;
 		Direction = direction;
 	}
+
+	public override int GetHashCode() => Position.GetHashCode() | (int)Direction * 0x10001000;
+	public bool Equals(Bearing other) => Position.Equals(other) && Direction == other.Direction;
 
 	public Bearing Forward => new Bearing(Position.Neighbor(Direction), Direction);
 	public Bearing TurnLeft => new Bearing(Position, Direction.TurnLeft());
@@ -299,6 +306,6 @@ public abstract class BreadthFirst<TState, TVisited> {
 		}
 	}
 	
-	private DumpContainer DumpContainer = null;
+	private DumpContainer? DumpContainer = null;
 	public virtual object ToDump() => DumpContainer = new DumpContainer();
 }
