@@ -8,86 +8,65 @@
 #load ".\intcode.linq"
 
 struct State {
-	public int x;
-	public int y;
-	public int moves;
-
-	internal IEnumerable<State> GetNext(Plane<char> plane, Dictionary<(int x, int y), (int x, int y)> warps) {
-		if (warps.TryGetValue((x, y), out var t))
-			yield return new State { x = t.x, y = t.y, moves = moves + 1 };
-		
-		if (plane[x - 1, y] == '.')
-			yield return new State { x = x - 1, y = y, moves = moves + 1 };
-		if (plane[x + 1, y] == '.')
-			yield return new State { x = x + 1, y = y, moves = moves + 1 };
-		if (plane[x, y - 1] == '.')
-			yield return new State { x = x, y = y - 1, moves = moves + 1 };
-		if (plane[x, y + 1] == '.')
-			yield return new State { x = x, y = y + 1, moves = moves + 1 };
-	}
+	public Point Position;
+	public int Moves;
 }
 
 void Main() {
-	var plane = GetAocCharPlane();
+	var search = new PlutoMaze(GetAocCharPlane());
+	search.Search().Moves.Dump();
+}
 
-	bool IsLetter2(char c) => c >= 'A' && c <= 'Z';
-	bool IsLetter(int x, int y) => IsLetter2(plane[x, y]);
+class PlutoMaze : BreadthFirst<State, Point> {
+	private Point Target;
+	private Dictionary<Point, Point> Warps = new Dictionary<Point, Point>();
+	private Plane<char> Plane;
 
-	var spots = new List<(string name, int x, int y)>();
+	private bool IsLetter(int x, int y) => Plane[x, y] is char c && c >= 'A' && c <= 'Z';
 
-	for (int x = 0; x < plane.Width; x++) {
-		for (int y = 0; y < plane.Height; y++) {
-			if (plane[x, y] == '.') {
-				if (IsLetter(x - 1, y) && IsLetter(x - 2, y)) {
-					spots.Add(("" + plane[x - 2, y] + plane[x - 1, y], x, y));
-				}
-				else if (IsLetter(x, y - 1) && IsLetter(x, y - 2)) {
-					spots.Add(("" + plane[x, y - 2] + plane[x, y - 1], x, y));
-				}
-				else if (IsLetter(x + 1, y) && IsLetter(x + 2, y)) {
-					spots.Add(("" + plane[x + 1, y] + plane[x + 2, y], x, y));
-				}
-				else if (IsLetter(x, y + 1) && IsLetter(x, y + 2)) {
-					spots.Add(("" + plane[x, y + 1] + plane[x, y + 2], x, y));
+	public PlutoMaze(Plane<char> plane) {
+		Plane = plane;
+
+		var spots = new List<(string name, Point position)>();
+		for (int x = 0; x < plane.Width; x++) {
+			for (int y = 0; y < plane.Height; y++) {
+				if (plane[x, y] == '.') {
+					if (IsLetter(x - 1, y) && IsLetter(x - 2, y))
+						spots.Add(("" + plane[x - 2, y] + plane[x - 1, y], new Point(x, y)));
+					else if (IsLetter(x, y - 1) && IsLetter(x, y - 2))
+						spots.Add(("" + plane[x, y - 2] + plane[x, y - 1], new Point(x, y)));
+					else if (IsLetter(x + 1, y) && IsLetter(x + 2, y))
+						spots.Add(("" + plane[x + 1, y] + plane[x + 2, y], new Point(x, y)));
+					else if (IsLetter(x, y + 1) && IsLetter(x, y + 2))
+						spots.Add(("" + plane[x, y + 1] + plane[x, y + 2], new Point(x, y)));
 				}
 			}
 		}
+
+		var nameLookup = spots.ToLookup(s => s.name, s => s.position);
+
+		foreach (var g in nameLookup) {
+			if (g.Count() != 2) continue;
+			Warps[g.First()] = g.Last();
+			Warps[g.Last()] = g.First();
+		}
+
+		Target = nameLookup["ZZ"].Single();
+		var start = new State { Position = nameLookup["AA"].Single() };
+		Frontier.Enqueue(start);
 	}
 
-	var pointLookup = spots.ToDictionary(s => (s.x, s.y), s => s.name);
-	var nameLookup = spots.ToLookup(s => s.name, s => (s.x, s.y));
+	protected override Point GetKey(State state) => state.Position;
 
-	var warps = new Dictionary<(int x, int y), (int x, int y)>();
-	foreach (var g in nameLookup) {
-		if (g.Count() != 2) continue;
-		warps[g.First()] = g.Last();
-		warps[g.Last()] = g.First();
-	}
+	protected override bool IsGoal(State state) => state.Position.Equals(Target);
 
-	var aa = nameLookup["AA"].Single();
-	var zz = nameLookup["ZZ"].Single();
-	
-	var frontier = new Queue<State>();
-	frontier.Enqueue(new State {
-		x = aa.x, 
-		y = aa.y,
-		moves = 0,
-	});
-	var seen = new HashSet<(int x, int y)>();
-	
-	while (frontier.Any()) {
-		var curr = frontier.Dequeue();
-		if (seen.Contains((curr.x, curr.y))) continue;
-		seen.Add((curr.x, curr.y));
-		
-		if ((curr.x, curr.y) == (zz.x, zz.y)) {
-			curr.Dump();
-			break;
-		}
-		
-		foreach (var next in curr.GetNext(plane, warps)) {
-			frontier.Enqueue(next);
-		}
+	protected override IEnumerable<State> NextStates(State state) {
+		var pos = state.Position;
+		int nm = state.Moves + 1;
+		if (Warps.TryGetValue(pos, out var t))
+			yield return new State { Position = t, Moves = nm };
+
+		foreach (var next in pos.Neighbors)
+			if (Plane[next] == '.') yield return new State { Position = next, Moves = nm };
 	}
 }
-

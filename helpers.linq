@@ -250,3 +250,37 @@ class PriorityQueue<T> : IReadOnlyCollection<T> {
     public IEnumerator<T> GetEnumerator() => Heap.GetEnumerator();
     IEnumerator IEnumerable.GetEnumerator() => this.GetEnumerator();
 }
+
+public abstract class BreadthFirst<TState, TVisited> {
+	protected Queue<TState> Frontier;
+	protected HashSet<TVisited> Visited = new HashSet<TVisited>();
+
+	public BreadthFirst() {
+		Frontier = new Queue<TState>();
+	}
+
+	public BreadthFirst(params TState[] initial) {
+		Frontier = new Queue<TState>(initial);
+	}
+
+	protected abstract IEnumerable<TState> NextStates(TState state);
+
+	protected abstract TVisited GetKey(TState state);
+
+	protected abstract bool IsGoal(TState state);
+
+	public TState Search() {
+		Visited.Clear();
+
+		while (true) {
+			var curr = Frontier.Dequeue();
+			TVisited key = GetKey(curr);
+			if (Visited.Contains(key)) continue;
+			Visited.Add(key);
+
+			if (IsGoal(curr)) return curr;
+
+			foreach (var next in NextStates(curr)) Frontier.Enqueue(next);
+		}
+	}
+}
