@@ -107,6 +107,7 @@ public struct Point {
 		Direction.Down => new Point(X, Y + distance),
 		Direction.Left => new Point(X - distance, Y),
 		Direction.Right => new Point(X + distance, Y),
+		_ => throw new ArgumentOutOfRangeException(nameof(dir)),
 	};
 }
 
