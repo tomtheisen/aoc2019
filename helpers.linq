@@ -85,6 +85,9 @@ public struct Point {
 	public Point(int x, int y) => (X, Y) = (x, y);
 	public void Deconstruct(out int x, out int y) => (x, y) = (X, Y);
 
+	public override string ToString() => $"({X}, {Y})";
+	object ToDump() => ToString();
+
 	public Point Up => new Point(X, Y - 1);
 	public Point Down => new Point(X, Y + 1);
 	public Point Left => new Point(X - 1, Y);
@@ -172,6 +175,16 @@ public class Plane<T> where T : notnull {
 		Contents.Clear();
 		MinX = MaxX = MinY = MaxY = 0;
 	}
+	
+	public IEnumerable<T> Values {
+		get {
+			for (int y = MinY; y <= MaxY; y++) for (int x = MinX; x <= MaxX; x++)
+				yield return this[x, y];
+		}
+	}
+	
+	public IEnumerable<Point> Find(Predicate<T> fn) 
+		=> Contents.Where(kvp => fn(kvp.Value)).Select(kvp => kvp.Key);
 	
 	string ToDump() {
 		var sb = new StringBuilder();
@@ -277,10 +290,15 @@ public abstract class BreadthFirst<TState, TVisited> {
 			TVisited key = GetKey(curr);
 			if (Visited.Contains(key)) continue;
 			Visited.Add(key);
-
+			
 			if (IsGoal(curr)) return curr;
+			
+			if (DumpContainer != null) DumpContainer.Content = $"Frontier: {Frontier.Count:0,0} Visited: {Visited.Count:0,0}";
 
 			foreach (var next in NextStates(curr)) Frontier.Enqueue(next);
 		}
 	}
+	
+	private DumpContainer DumpContainer = null;
+	public virtual object ToDump() => DumpContainer = new DumpContainer();
 }

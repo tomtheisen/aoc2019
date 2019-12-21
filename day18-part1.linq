@@ -2,102 +2,85 @@
   <Namespace>static System.Console</Namespace>
   <Namespace>static System.Math</Namespace>
   <Namespace>System.Numerics</Namespace>
+  <Namespace>System.Diagnostics.CodeAnalysis</Namespace>
 </Query>
 
 #load ".\helpers.linq"
 
-private static Plane<char> Board;
-private static int TotalKeys;
+struct StateKey : IEquatable<StateKey> {
+	public Point Position;
+	public int keyset;
+
+	public override int GetHashCode() => Position.GetHashCode() ^ keyset;
+	public bool Equals([AllowNull] StateKey other)
+		=> keyset == other.keyset && Position.Equals(other.Position);
+}
 
 struct State {
-	public int x;
-	public int y;
+	public Point Position;
 	public int keyset;
 	public int keycount;
 	public int moves;
+}  
+
+class NeptuneVault : BreadthFirst<State, StateKey> {
+	private int TotalKeys;
+	private Plane<char> Board;
+
+	protected override StateKey GetKey(State state) 
+		=> new StateKey { Position = state.Position, keyset = state.keyset };
 	
-	public IEnumerable<State> GetNext() {
-		(int x, int y)[] cand = {(x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1)};
-		
-		foreach (var c in cand) {
-			var ch = Board[c.x, c.y];
+	protected override bool IsGoal(State state) 
+		=> state.keycount == TotalKeys;
+
+	protected override IEnumerable<State> NextStates(State state) {
+		foreach (var n in state.Position.Neighbors) {
+			var ch = Board[n];
 			if (ch == '#') continue;
-			bool haveKey = (this.keyset >> (char.ToLower(ch) - 'a') & 1) == 1;
+			bool haveKey = (state.keyset >> (char.ToLower(ch) - 'a') & 1) == 1;
 			if (ch >= 'A' && ch <= 'Z' && !haveKey) continue;
 			bool isNewKey = ch >= 'a' && ch <= 'z' && !haveKey;
-			
+
 			yield return new State {
-				x = c.x,
-				y = c.y,
+				Position = n,
 				keyset = isNewKey
-					? this.keyset | (1 << ch - 'a')
-					: this.keyset,
-				keycount = isNewKey ? this.keycount + 1 : this.keycount,
-				moves = this.moves + 1,
+					? state.keyset | (1 << ch - 'a')
+					: state.keyset,
+				keycount = state.keycount + (isNewKey ? 1 : 0),
+				moves = state.moves + 1,
 			};
 		}
 	}
-}  
 
-(int x, int y) GetStart() {
-	for (int y = 0; y < Board.Height; y++) {
-		for (int x = 0; x < Board.Width; x++) {
-			if (Board[x, y] == '@') return (x, y);
+	private void SealDeadEnds() {
+		while (true) {
+			bool didwork = false;
+			for (int x = 1; x < Board.Width - 1; x++) {
+				for (int y = 1; y < Board.Height - 1; y++) {
+					var pt = new Point(x, y);
+					
+					bool dead = (Board[pt] == '.' || Board[pt] >= 'A' && Board[pt] <= 'Z')
+						&& pt.Neighbors.Select(p => Board[p]).Count(c => c == '#') >= 3;
+					if (dead) Board[pt] = '#';
+					didwork |= dead;
+				}
+			}
+			if (!didwork) break;
 		}
 	}
-	throw new Exception();
-}
 
-void SealDeadEnds() {
-	while (true) {
-		bool didwork = false;
-		for (int x = 1; x < Board.Width - 1; x++) {
-			for (int y = 1; y < Board.Height - 1; y++) {
-				bool dead =  (Board[x, y] == '.' || Board[x, y] >= 'A' && Board[x, y] <= 'Z')
-					&& ("" + Board[x, y - 1] + Board[x, y + 1] + Board[x - 1, y] + Board[x + 1, y]).Count(c => c == '#') >= 3;
-				if (dead) Board[x, y] = '#';
-				didwork |= dead;
-			}
-		}
-		if (!didwork) break;
+	public NeptuneVault(Plane<char> board) {
+		Board = board;
+		TotalKeys = board.Values.Count(c => c >= 'a' && c <= 'z');
+		SealDeadEnds();
+		var start = Board.Find(c => c == '@').Single();
+		Frontier.Enqueue(new State { Position = start });
 	}
 }
 
 void Main() {
-    Board = GetAocCharPlane();
-    TotalKeys = GetAocInput().RegexFindAll("[a-z]").Count;
-	SealDeadEnds();
-	var (x, y) = GetStart();
-    Board.Dump();
-
-    var startState = new State{ x = x, y = y, };
-	
-	var frontier = new Queue<State>();
-	frontier.Enqueue(startState);
-	var seen = new HashSet<(int x, int y, int keyset)>();
-	
-	int mostKeysSeen = 0;
-	var mostContainer = new DumpContainer(mostKeysSeen).Dump("Most Keys Seen");
-	var frontierSize = new DumpContainer().Dump("Frontier Size");
-	var seenSize = new DumpContainer().Dump("Seen size");
-	var movesContainer = new DumpContainer().Dump("Moves depth");
-	
-	while (frontier.Any()) {
-		var curr = frontier.Dequeue();
-        if (seen.Contains((curr.x, curr.y, curr.keyset))) continue;
-		seen.Add((curr.x, curr.y, curr.keyset));
-		
-		mostContainer.Content = mostKeysSeen = Max(mostKeysSeen, curr.keycount);
-
-		frontierSize.Content = frontier.Count;
-		seenSize.Content = seen.Count;
-		movesContainer.Content = curr.moves;
-		
-		if (curr.keycount == TotalKeys) {
-			curr.Dump();
-			return;
-		}
-		
-		foreach (var e in curr.GetNext()) frontier.Enqueue(e);
-	}
+	var maze = new NeptuneVault(GetAocCharPlane())
+		//.Dump()
+		;
+	maze.Search().Dump(1);
 }
