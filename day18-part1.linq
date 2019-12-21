@@ -12,7 +12,7 @@ struct StateKey : IEquatable<StateKey> {
 	public int keyset;
 
 	public override int GetHashCode() => Position.GetHashCode() ^ keyset;
-	public bool Equals([AllowNull] StateKey other)
+	public bool Equals(StateKey other)
 		=> keyset == other.keyset && Position.Equals(other.Position);
 }
 
@@ -73,7 +73,7 @@ class NeptuneVault : BreadthFirst<State, StateKey> {
 		Board = board;
 		TotalKeys = board.Values.Count(c => c >= 'a' && c <= 'z');
 		SealDeadEnds();
-		var start = Board.Find(c => c == '@').Single();
+		var start = board.Find(c => c == '@').Single();
 		Frontier.Enqueue(new State { Position = start });
 	}
 }
