@@ -8,8 +8,6 @@ void Main() {
 	p[3, 3] = 9;
 	p[4, 7] = 4;
 	p.Dump("Plane");
-	p.YGoesUp = true;
-	p.Dump("Plane");
 }
 
 static string[] GetAocLines() => File.ReadAllLines(Util.CurrentQueryPath.Replace(".linq", ".txt"));
@@ -61,17 +59,72 @@ public static partial class Extensions {
 			yield return current;
 		}
 	}
+	
+	public static Direction TurnLeft(this Direction d) => d switch {
+		Direction.Up => Direction.Left,
+		Direction.Left => Direction.Down,
+		Direction.Down => Direction.Right,
+		Direction.Right => Direction.Up,
+		_ => throw new ArgumentOutOfRangeException(nameof(d)),
+	};
+
+	public static Direction TurnRight(this Direction d) => d switch {
+		Direction.Up => Direction.Right,
+		Direction.Right => Direction.Down,
+		Direction.Down => Direction.Left,
+		Direction.Left => Direction.Up,
+		_ => throw new ArgumentOutOfRangeException(nameof(d)),
+	};
+}
+
+public enum Direction { Up, Down, Left, Right }
+
+public struct Point {
+	public int X;
+	public int Y;
+	public Point(int x, int y) => (X, Y) = (x, y);
+	public void Deconstruct(out int x, out int y) => (x, y) = (X, Y);
+
+	public Point Up => new Point(X, Y - 1);
+	public Point Down => new Point(X, Y + 1);
+	public Point Left => new Point(X - 1, Y);
+	public Point Right => new Point(X + 1, Y);
+	
+	public Point[] Neighbors => new[] {Up, Down, Left, Right};
+	public Point[] DiagonalNeighbors 
+		=> new[] {Up.Left, Up, Up.Right, Left, Right, Down.Left, Down, Down.Right};
+		
+	public Point Neighbor(Direction d) => d switch {
+		Direction.Up => Up, 
+		Direction.Down => Down, 
+		Direction.Left => Left, 
+		Direction.Right => Right,
+		_ => throw new ArgumentOutOfRangeException(nameof(d)),
+	};
+	
+	public Point Move(Direction dir, int distance) => dir switch {
+		Direction.Up => new Point(X, Y - distance),
+		Direction.Down => new Point(X, Y + distance),
+		Direction.Left => new Point(X - distance, Y),
+		Direction.Right => new Point(X + distance, Y),
+	};
+}
+
+public struct Bearing {
+	public Point Position;
+	public Direction Direction;
+	
+	public Bearing(Point position, Direction direction) {
+		Position = position;
+		Direction = direction;
+	}
+
+	public Bearing Forward => new Bearing(Position.Neighbor(Direction), Direction);
+	public Bearing TurnLeft => new Bearing(Position, Direction.TurnLeft());
+	public Bearing TurnRight => new Bearing(Position, Direction.TurnLeft());
 }
 
 public class Plane<T> where T : notnull {
-	struct Position {
-		public int X;
-		public int Y;
-		public Position(int x, int y) => (X, Y) = (x, y);
-	}
-
-	public bool YGoesUp { get; set; } = false;
-
 	public int MinX { get; private set; }
 	public int MaxX { get; private set; }
 	public int MinY { get; private set; }
@@ -80,7 +133,7 @@ public class Plane<T> where T : notnull {
 	public int Width => MaxX - MinX + 1;
 	public int Height => MaxY - MinY + 1;
 	
-	private Dictionary<Position, T> Contents = new Dictionary<Position, T>();
+	private Dictionary<Point, T> Contents = new Dictionary<Point, T>();
 	private IReadOnlyDictionary<T, char>? CharMap = null;
 	private T Default;
 	public Plane(T @default, IReadOnlyDictionary<T, char>? charmap = null) {
@@ -92,7 +145,7 @@ public class Plane<T> where T : notnull {
 	{ }
 
 	public T this[int x, int y] {
-		get => Contents.TryGetValue(new Position(x, y), out T t) ? t : Default;
+		get => Contents.TryGetValue(new Point(x, y), out T t) ? t : Default;
 		set {
 			if (Contents.Count == 0) {
 				MinX = MaxX = x;
@@ -104,8 +157,12 @@ public class Plane<T> where T : notnull {
 				MinY = Min(MinY, y);
 				MaxY = Max(MaxY, y);
 			}
-			Contents[new Position(x, y)] = value;
+			Contents[new Point(x, y)] = value;
 		}
+	}
+	public T this[Point p] {
+		get => this[p.X, p.Y];
+		set => this[p.X, p.Y] = value;
 	}
 	
 	public int Count => Contents.Count;
@@ -117,7 +174,7 @@ public class Plane<T> where T : notnull {
 	
 	string ToDump() {
 		var sb = new StringBuilder();
-		for (int y = YGoesUp ? MaxY : MinY; YGoesUp ? y >= MinY : y <= MaxY; y += YGoesUp ? -1 : 1) {
+		for (int y = MinY; y <= MaxY; y++) {
 			for (int x = MinX; x <= MaxX; x++) {
 				if (CharMap is {}) sb.Append(CharMap[this[x, y]]);
 				else sb.Append(this[x, y]);
@@ -169,8 +226,7 @@ class PriorityQueue<T> : IReadOnlyCollection<T> {
         Heap.Add(item ?? throw new ArgumentNullException(nameof(item)));
         Reheap(Heap.Count - 1);
     }
-    public T Peek() => Heap.Count > 0
-        ? Heap[0]
+    public T Peek() => Heap.Count > 0 ? Heap[0]
         : throw new InvalidOperationException("Queue Empty");
     public T Dequeue() {
         var result = Peek();
