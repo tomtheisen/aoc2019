@@ -13,18 +13,7 @@ struct StateKey : IEquatable<StateKey> {
 	public Point p3;
 	public int keybits;
 
-	public override int GetHashCode() {
-		int result = 0;
-		result += p0.GetHashCode();
-		result *= 0xff;
-		result += p1.GetHashCode();
-		result *= 0xff;
-		result += p2.GetHashCode();
-		result *= 0xff;
-		result += p3.GetHashCode();
-		result ^= keybits;
-		return result;
-	}
+	public override int GetHashCode() => Hash(p0, p1, p2, p3, keybits);
 
 	public bool Equals(StateKey other) => keybits == other.keybits
 		&& p0.Equals(other.p0) && p1.Equals(other.p1) && p2.Equals(other.p2) && p3.Equals(other.p3);

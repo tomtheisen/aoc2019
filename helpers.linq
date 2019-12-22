@@ -30,6 +30,8 @@ static Plane<char> GetAocCharPlane() {
     return result;
 }
 
+static int Hash(params object[] args) => args.Aggregate(0, (h, e) => h * 0x7654321 + e.GetHashCode());
+
 public static partial class Extensions {
 	public static List<string> RegexFindAll(this string @this, string pattern)
 		=> Regex.Matches(@this, pattern).Where(m => m.Success).Select(m => m.Value).ToList();
@@ -89,7 +91,7 @@ public struct Point : IEquatable<Point> {
 	public override string ToString() => $"({X}, {Y})";
 	object ToDump() => ToString();
 
-	public override int GetHashCode() => unchecked(X * 0xffff + Y);
+	public override int GetHashCode() => Hash(X, Y);
 	public bool Equals(Point other) => X == other.X && Y == other.Y;
 
 	public Point Up => new Point(X, Y - 1);
@@ -127,7 +129,7 @@ public struct Bearing : IEquatable<Bearing> {
 		Direction = direction;
 	}
 
-	public override int GetHashCode() => Position.GetHashCode() | (int)Direction * 0x10001000;
+	public override int GetHashCode() => Hash(Position, Direction);
 	public bool Equals(Bearing other) => Position.Equals(other) && Direction == other.Direction;
 
 	public Bearing Forward => new Bearing(Position.Neighbor(Direction), Direction);
