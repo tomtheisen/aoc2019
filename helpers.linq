@@ -132,7 +132,7 @@ public struct Bearing : IEquatable<Bearing> {
 
 	public Bearing Forward => new Bearing(Position.Neighbor(Direction), Direction);
 	public Bearing TurnLeft => new Bearing(Position, Direction.TurnLeft());
-	public Bearing TurnRight => new Bearing(Position, Direction.TurnLeft());
+	public Bearing TurnRight => new Bearing(Position, Direction.TurnRight());
 }
 
 public class Plane<T> where T : notnull {

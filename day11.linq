@@ -7,29 +7,25 @@
 #load ".\helpers.linq"
 #load ".\intcode.linq"
 
-int x = 0, y = 0, dir = 0;
+Bearing bearing = default;
 var board = new Plane<long>(0, (0, ' '), (1, '#'));
-var machine = new IntCodeMachine { NextInput = () => board[x, y] };
+var machine = new IntCodeMachine { NextInput = () => board[bearing.Position] };
 
 void Run() {
 	for(machine.Reset();;) {
 		if (!(machine.GetOutput() is long output)) return;
-		board[x, y] = output;
-
-		dir += (int)machine.GetOutput()! switch { 0 => 3, 1 => 1 };
-		switch (dir %= 4) {
-			case 0: --y; break;
-			case 1: ++x; break;
-			case 2: ++y; break;
-			case 3: --x; break;
-		}
+		board[bearing.Position] = output;
+		bearing = machine.GetOutput() switch { 
+			0 => bearing.TurnLeft.Forward, 
+			1 => bearing.TurnRight.Forward, 
+		};
 	}
 }
 
 Run();
 WriteLine(board.Count);
 
-dir = x = y = 0;
+bearing = default;
 board.Clear();
 board[0, 0] = 1;
 Run();
