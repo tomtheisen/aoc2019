@@ -30,7 +30,7 @@ static Plane<char> GetAocCharPlane() {
     return result;
 }
 
-static int Hash(params object[] args) => args.Aggregate(0, (h, e) => h * 0x7654321 + e.GetHashCode());
+static int Hash(params object[] args) => args.Aggregate(-1, (h, e) => h * 0x7654321 ^ e.GetHashCode());
 
 public static partial class Extensions {
 	public static List<string> RegexFindAll(this string @this, string pattern)
