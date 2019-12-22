@@ -300,7 +300,7 @@ public abstract class BreadthFirst<TState, TVisited> {
 			
 			if (IsGoal(curr)) return curr;
 			
-			if (DumpContainer != null) DumpContainer.Content = $"Frontier: {Frontier.Count:0,0} Visited: {Visited.Count:0,0}";
+			if (DumpContainer != null) DumpContainer.Content = $"Frontier: {Frontier.Count:#,0} Visited: {Visited.Count:#,0}";
 
 			foreach (var next in NextStates(curr)) Frontier.Enqueue(next);
 		}

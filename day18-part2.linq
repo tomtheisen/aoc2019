@@ -6,134 +6,132 @@
 
 #load ".\helpers.linq"
 
-private static Plane<char> Board;
-private static int TotalKeys;
+struct StateKey : IEquatable<StateKey> {
+	public Point p0;
+	public Point p1;
+	public Point p2;
+	public Point p3;
+	public int keybits;
+
+	public override int GetHashCode() {
+		int result = 0;
+		result += p0.GetHashCode();
+		result *= 0xff;
+		result += p1.GetHashCode();
+		result *= 0xff;
+		result += p2.GetHashCode();
+		result *= 0xff;
+		result += p3.GetHashCode();
+		result ^= keybits;
+		return result;
+	}
+
+	public bool Equals(StateKey other) => keybits == other.keybits
+		&& p0.Equals(other.p0) && p1.Equals(other.p1) && p2.Equals(other.p2) && p3.Equals(other.p3);
+}
 
 struct State {
-	public int x0; public int y0;
-	public int x1; public int y1;
-	public int x2; public int y2;
-	public int x3; public int y3;
+	public Point p0;
+	public Point p1;
+	public Point p2;
+	public Point p3;
 	public int active;
 	
     public int lastkeybits;
 	public int keybits;
-	public int keycount;
 	public int moves;
 	
-	public (int x, int y) this[int i]{
-		get => i switch { 0 => (x0, y0), 1 => (x1, y1), 2 => (x2, y2), 3 => (x3, y3) };
+	public Point this[int i]{
+		get => i switch { 0 => p0, 1 => p1, 2 => p2, 3 => p3 };
 		set {
 			switch (i) {
-				case 0: (x0, y0) = value; break;
-				case 1: (x1, y1) = value; break;
-				case 2: (x2, y2) = value; break;
-				case 3: (x3, y3) = value; break;
+				case 0: p0 = value; break;
+				case 1: p1 = value; break;
+				case 2: p2 = value; break;
+				case 3: p3 = value; break;
 			}
 		}
 	}
 
-    private bool HasKey(char c) => (this.keybits >> ((c | 32) - 'a') & 1) == 1;
+    public bool HasKey(char c) => (this.keybits >> (char.ToLower(c) - 'a') & 1) == 1;
+}
 
-	public IEnumerable<State> GetNext() {
-		var ch = Board[this[active].x, this[active].y];
+class NeptuneMultiVault : BreadthFirst<State, StateKey> {
+	private Plane<char> Board;
+	private int KeybitsTarget;
+	
+	public NeptuneMultiVault(Plane<char> board) {
+		Board = board;
+		KeybitsTarget = (1 << Board.Values.Count(c => c >='a' && c <= 'z')) - 1;
+		SealDeadEnds();
+		var start = Board.Find(c => c == '@').Single();
+		Board[start] = '#';
+		foreach (var n in start.Neighbors) Board[n] = '#';
+
+		var startState = new State {
+			p0 = start.Up.Left,
+			p1 = start.Up.Right,
+			p2 = start.Down.Left,
+			p3 = start.Down.Right,
+		};
 		for (int i = 0; i < 4; i++) {
-			if (i != active && this.lastkeybits == this.keybits) continue;
+			startState.active = i;
+			Frontier.Enqueue(startState);
+		}
+	}
 
-			var (x, y) = this[i];
-			(int x, int y)[] cand = { (x - 1, y), (x + 1, y), (x, y - 1), (x, y + 1) };
+	private void SealDeadEnds() {
+		while (true) {
+			bool didwork = false;
+			for (int x = 1; x < Board.Width - 1; x++) {
+				for (int y = 1; y < Board.Height - 1; y++) {
+					var pt = new Point(x, y);
 
-			foreach (var c in cand) {
-                char tch = Board[c.x, c.y];
-                if (tch == '#') continue;
-		        if (tch >= 'A' && tch <= 'Z' && !HasKey(tch)) continue;
-            
-				State next = this;
-                next.lastkeybits = this.keybits;
-				next.active = i;
-				next[i] = (c.x, c.y);
-				next.moves += 1;
-				if (tch >= 'a' && tch <= 'z' && !HasKey(tch)) {
-                    next.keybits |= 1 << tch - 'a';
-					next.keycount += 1;
+					bool dead = (Board[pt] == '.' || Board[pt] >= 'A' && Board[pt] <= 'Z')
+						&& pt.Neighbors.Select(p => Board[p]).Count(c => c == '#') >= 3;
+					if (dead) Board[pt] = '#';
+					didwork |= dead;
 				}
+			}
+			if (!didwork) break;
+		}
+	}
+
+	protected override StateKey GetKey(State state) => new StateKey {
+		keybits = state.keybits,
+		p0 = state.p0,
+		p1 = state.p1,
+		p2 = state.p2,
+		p3 = state.p3,
+	};
+
+	protected override bool IsGoal(State state) => state.keybits == KeybitsTarget;
+
+	protected override IEnumerable<State> NextStates(State state) {
+		var ch = Board[state[state.active]];
+		for (int i = 0; i < 4; i++) {
+			if (i != state.active && state.lastkeybits == state.keybits) continue;
+			foreach (var n in state[i].Neighbors) {
+				char tch = Board[n];
+				if (tch == '#') continue;
+				if (tch >= 'A' && tch <= 'Z' && !state.HasKey(tch)) continue;
+
+				State next = state;
+				next.lastkeybits = state.keybits;
+				next.active = i;
+				next[i] = n;
+				next.moves += 1;
+				if (tch >= 'a' && tch <= 'z' && !state.HasKey(tch))
+					next.keybits |= 1 << tch - 'a';
 				yield return next;
 			}
 		}
 	}
-}  
-
-(int x, int y) GetStart() {
-	for (int y = 0; y < Board.Height; y++) {
-		for (int x = 0; x < Board.Width; x++) {
-			if (Board[x,y] == '@') return (x, y);
-		}
-	}
-	throw new Exception();
-}
-
-void SealDeadEnds() {
-	while (true) {
-		bool didwork = false;
-		for (int x = 1; x < Board.Width - 1; x++) {
-			for (int y = 1; y < Board.Height - 1; y++) {
-				bool dead =  (Board[x, y] == '.' || Board[x, y] >= 'A' && Board[x, y] <= 'Z')
-					&& ("" + Board[x, y - 1] + Board[x, y + 1] + Board[x - 1, y] + Board[x + 1, y]).Count(c => c == '#') >= 3;
-				if (dead) Board[x, y] = '#';
-				didwork |= dead;
-			}
-		}
-		if (!didwork) break;
-	}
 }
 
 void Main() {
-    Board = GetAocCharPlane();
-    TotalKeys = GetAocInput().RegexFindAll("[a-z]").Count;
-	SealDeadEnds();
-	var (x, y) = GetStart();
-	Board[x,y] = '#';
-	Board[x, y - 1] = Board[x, y + 1] = Board[x - 1, y] = Board[x + 1, y] = '#';
-	Board[x - 1, y - 1] = Board[x - 1, y + 1] = Board[x + 1, y - 1] = Board[x + 1, y + 1] = '@';
-    Board.Dump();
-
-	var startState = new State { 
-		x0 = x-1, y0 = y-1, 
-		x1 = x+1, y1 = y-1, 
-		x2 = x-1, y2 = y+1, 
-		x3 = x+1, y3 = y+1,
-	};
-	
-	var frontier = new Queue<State>();
-	for (int i = 0; i < 4; i++) {
-		startState.active = i;
-		frontier.Enqueue(startState);
-	}
-
-	var seen = new HashSet<(int x0, int y0, int x1, int y1, int x2, int y2, int x3, int y3, int keyset)>();
-	
-	int mostKeysSeen = 0;
-	var mostContainer = new DumpContainer(mostKeysSeen).Dump("Most Keys Seen");
-	var frontierSize = new DumpContainer().Dump("Frontier Size");
-	var seenSize = new DumpContainer().Dump("Seen size");
-	var movesContainer = new DumpContainer().Dump("Moves depth");
-
-    while (frontier.Any()) {
-		var curr = frontier.Dequeue();
-		var mapkey = (curr.x0, curr.y0, curr.x1, curr.y1, curr.x2, curr.y2, curr.x3, curr.y3, curr.keybits);
-		if (seen.Contains(mapkey)) continue;
-		seen.Add(mapkey);
-        
-		mostContainer.Content = mostKeysSeen = Max(mostKeysSeen, curr.keycount);
-		frontierSize.Content = frontier.Count;
-		seenSize.Content = seen.Count;
-		movesContainer.Content = curr.moves;
-
-        if (curr.keycount == TotalKeys) {
-            curr.Dump();
-            return;
-        }
-        
-		foreach (var e in curr.GetNext()) frontier.Enqueue(e);
-	}
+	var maze = new NeptuneMultiVault(GetAocCharPlane())
+		//.Dump()
+		;
+	maze.Search().Dump(1);
 }
