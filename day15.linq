@@ -10,72 +10,29 @@
 const bool animate = true;
 const char Wall = '█', Floor = '░', Fog = '?', Drone = '•', O2 = '≈';
 
-enum Direction { North = 1, South = 2, West = 3, East = 4 }
-Direction[] AllDirections = { Direction.North, Direction.South, Direction.West, Direction.East };
-
-Direction Left(Direction d) => d switch {
-	Direction.North => Direction.West,
-	Direction.West => Direction.South,
-	Direction.South => Direction.East,
-	Direction.East => Direction.North,
-	_ => throw new ArgumentOutOfRangeException(),
-};
-Direction Right(Direction d) => d switch {
-	Direction.North => Direction.East,
-	Direction.East => Direction.South,
-	Direction.South => Direction.West,
-	Direction.West => Direction.North,
-	_ => throw new ArgumentOutOfRangeException(),
-};
-
-struct Position {
-	public int X;
-	public int Y;
-	public Position(int x, int y) => (X, Y) = (x, y);
-	public void Deconstruct(out int x, out int y) => (x, y) = (X, Y);
-	public Position[] GetNeighbors() => new[] {
-		new Position(X, Y - 1),
-		new Position(X, Y + 1),
-		new Position(X - 1, Y),
-		new Position(X + 1, Y),
-	};
-	
-	public Position GetNeighbor(Direction d) => d switch {
-		Direction.North => new Position(X, Y - 1),
-		Direction.South => new Position(X, Y + 1),
-		Direction.West => new Position(X - 1, Y),
-		Direction.East => new Position(X + 1, Y),
-		_ => throw new ArgumentOutOfRangeException(),
-	};
-	
-	public static readonly Position Origin = default;
-	
-	public override string ToString() => $"({X}, {Y})";
-}
+Direction[] AllDirections = new [] { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
 
 void Main() {
  	// part 1
-	var steps = new Dictionary<Position, int> {[Position.Origin] = 0};
+	var steps = new Dictionary<Point, int> {[default] = 0};
 	var machine = new IntCodeMachine();
 	var plane = new Plane<char>(Fog) { [0, 0] = Drone };
 	
 	var planeContainer = animate ? new DumpContainer(plane).Dump() : null;
-	Position pos = Position.Origin, oxpos = default;
+	Point pos = default, oxpos = default;
 	
 	Direction? GetMove() {
-		var visited = new HashSet<Position> { pos };
-		var frontier = new Queue<(Direction firstStep, Position position)>();
+		var visited = new HashSet<Point> { pos };
+		var frontier = new Queue<(Direction firstStep, Point position)>();
 
-		foreach (var dir in AllDirections)
-			frontier.Enqueue((dir, pos.GetNeighbor(dir)));
-			
+		foreach (var dir in AllDirections) frontier.Enqueue((dir, pos.Neighbor(dir)));
 		while (frontier.Any()) {
 			var (firstStep, pos) = frontier.Dequeue();
-			if (plane[pos.X, pos.Y] == Wall || visited.Contains(pos)) continue;
+			if (plane[pos] == Wall || visited.Contains(pos)) continue;
 			visited.Add(pos);
-			if (plane[pos.X, pos.Y] == Fog) return firstStep;
+			if (plane[pos] == Fog) return firstStep;
 			foreach (var dir in AllDirections)
-				frontier.Enqueue((firstStep, pos.GetNeighbor(dir)));
+				frontier.Enqueue((firstStep, pos.Neighbor(dir)));
 		}
 		return null;
 	}
@@ -83,21 +40,26 @@ void Main() {
 	while (true) {
 		var dir = GetMove();
 		if (dir == null) break;
-		machine.TakeInput((int)dir);
-		Position lastPos = pos, target = pos.GetNeighbor(dir.Value);
+		machine.TakeInput(dir switch {
+			Direction.Up => 1,
+			Direction.Down => 2,
+			Direction.Left => 3,
+			Direction.Right => 4,
+		});
+		Point lastPos = pos, target = pos.Neighbor(dir.Value);
 		switch (machine.GetOutput() ?? throw new Exception("halted?")) {
 			case 0: // failed to move
-				plane[target.X, target.Y] = Wall;
+				plane[target] = Wall;
 				break;
 			case 1: // regular move
-				if (plane[pos.X, pos.Y] == Drone) plane[pos.X, pos.Y] = Floor;
+				if (plane[pos] == Drone) plane[pos] = Floor;
 				pos = target;
-				plane[pos.X, pos.Y] = Drone;
+				plane[pos] = Drone;
 				if (!steps.ContainsKey(pos)) steps[pos] = steps[lastPos] + 1;
 				break;
 			case 2: // moved to o2
-				plane[pos.X, pos.Y] = Floor;
-				plane[target.X, target.Y] = O2;
+				plane[pos] = Floor;
+				plane[target] = O2;
 				oxpos = pos = target;
 				if (!steps.ContainsKey(pos))
 					WriteLine($"Oxygen@{pos} steps:{ steps[pos] = steps[lastPos] + 1 }");
@@ -109,15 +71,15 @@ void Main() {
 	}
 	
 	// part 2
-	plane[pos.X, pos.Y] = plane[oxpos.X, oxpos.Y] = Floor;
-	int minutes = -2;
-	for (var frontier = new List<Position>{ oxpos }; frontier.Any(); minutes++) {
-		var newFrontier = new List<Position>();
+	plane[pos] = plane[oxpos] = Floor;
+	// discount one for the first, and one or the extra iteration to notice saturation
+	int minutes = -2; 
+	for (var frontier = new List<Point>{ oxpos }; frontier.Any(); minutes++) {
+		var newFrontier = new List<Point>();
 		foreach (var fpos in frontier) {
-			if (plane[fpos.X, fpos.Y] != Floor) continue;
-			plane[fpos.X, fpos.Y] = O2;
-			foreach (var dir in AllDirections)
-				newFrontier.Add(fpos.GetNeighbor(dir));
+			if (plane[fpos] != Floor) continue;
+			plane[fpos] = O2;
+			foreach (var dir in AllDirections) newFrontier.Add(fpos.Neighbor(dir));
 		}
 		frontier = newFrontier;
 		planeContainer?.Refresh();
